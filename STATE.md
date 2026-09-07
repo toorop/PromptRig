@@ -10,8 +10,10 @@ approved by the user.
 
 ## Current step
 
-**Step 4 — First provider (OpenAI) + registry**: implemented, verified (tests/clippy/fmt all
-clean), awaiting user review before commit. Steps 0–3 are complete, committed, and pushed.
+Steps 0–4 are complete, committed, and pushed. About to start **Step 5 — Tauri commands +
+generated bindings**: `commands/providers.rs`, `commands/runs.rs`, wiring `specta` +
+`tauri-specta` to generate `src/lib/bindings.ts`, and wiring `storage`/`providers`/`pricing`
+into the actual Tauri app for the first time.
 
 ## Done so far
 
@@ -102,7 +104,7 @@ clean), awaiting user review before commit. Steps 0–3 are complete, committed,
   (success and failed-run cases), missing id returns `None`. `cargo check`/`clippy --all-targets`
   /`fmt --check` all clean.
 
-**Step 4 — First provider (OpenAI) + registry** (implemented, not yet committed — see below):
+**Step 4 — First provider (OpenAI) + registry** (committed & pushed, `71f4b0f`):
 - `providers/mod.rs` — `LlmProvider` trait (`async-trait`, so it can be a trait object) with
   `test_connection`/`list_models`/`generate`, all taking `api_key: &str` explicitly (providers
   never touch the keyring themselves — the caller looks the key up via `secrets::get_api_key`).
@@ -148,8 +150,7 @@ clean), awaiting user review before commit. Steps 0–3 are complete, committed,
 
 ## In progress / not yet done
 
-- Step 4 changes above are complete but **not yet committed** — awaiting user review per the
-  step-by-step workflow (finish a step, stop, wait for go-ahead, then commit + push).
+- Nothing in progress right now — Steps 0–4 are all committed and pushed. Step 5 hasn't started.
 
 ## Known issues / incidents
 
@@ -183,8 +184,7 @@ clean), awaiting user review before commit. Steps 0–3 are complete, committed,
 
 ## Next action
 
-Waiting on user review of Step 4 (OpenAI provider + registry + pricing). Once confirmed,
-commit + push, then start Step 5 (Tauri commands + `tauri-specta` generated TS bindings, wiring
+Start Step 5 (Tauri commands + `tauri-specta` generated TS bindings, wiring
 `storage`/`providers`/`pricing` into the app for real).
 
 ## Deferred ideas (see TODO.md's "Deferred ideas" section for detail)
