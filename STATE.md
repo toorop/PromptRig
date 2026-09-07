@@ -346,7 +346,7 @@ request; a skipped provider gets picked up later.
 - `npm run build` clean throughout; manually verified live in `tauri dev` by the user twice
   (once for the cache itself, once for the refresh-button placeholder fix).
 
-**Mistral provider** (implemented, not yet committed — see below):
+**Mistral provider** (committed & pushed, `f769932`):
 - `providers/mistral.rs`: same Chat Completions wire format as OpenAI, but `/v1/models` reports
   `capabilities.completion_chat` and `max_context_length` per model directly — no id-string
   heuristics needed (unlike OpenAI's `is_chat_model`/`infer_capabilities`). No reasoning-model
@@ -376,9 +376,9 @@ request; a skipped provider gets picked up later.
 
 ## In progress / not yet done
 
-- Mistral provider + the two UI fixes above are complete but **not yet committed** — the user
-  wants a commit+push after *every* provider addition specifically (not just at bigger
-  milestones), partly because they may need to stop mid-session without much notice.
+- Mistral is committed and pushed. Moving to OpenRouter next. User flagged they may need to
+  stop in ~30 minutes with little notice — commit+push after every provider, don't batch up
+  multiple providers before committing.
 
 ## Known issues / incidents
 
