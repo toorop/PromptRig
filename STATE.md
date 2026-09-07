@@ -10,11 +10,12 @@ approved by the user.
 
 ## Current step
 
-Adding new providers to Step 8 **one at a time**; each gets committed + pushed individually.
-Mistral, OpenRouter, Anthropic, and Gemini are all done, committed, and pushed — every one
-except Mistral has been fully verified end to end with a real key (Mistral is blocked on an
-account-side rate limit, not a code issue). Only the generic OpenAI-compatible endpoint is left
-for Step 8's provider list, but it has no obvious test target yet.
+Mistral, OpenRouter, Anthropic, and Gemini are all done, committed, pushed, and **now all four
+fully verified end to end with real keys** (Mistral's earlier `429` turned out to be a
+transient account-side propagation delay — retesting later worked fine). The generic
+OpenAI-compatible endpoint is deliberately deferred (see below) — Step 8's provider rollout is
+effectively done for now, modulo pricing entries. Deciding what to tackle next (Step 9 UI
+polish, or something else) with the user.
 
 ## Done so far
 
@@ -431,11 +432,23 @@ for Step 8's provider list, but it has no obvious test target yet.
   this time: OpenRouter takes a commission, so a derived estimate would be a *ceiling*, not
   exact, and must be disclosed as such if this ever gets built (see TODO.md's Deferred ideas).
 
+- Mistral retested by the user later in the session: works correctly now. Confirms the earlier
+  `429 rate_limited` was a transient account-side delay (billing/plan propagation), not a code
+  issue — no code change needed, just a documentation update.
+- **Generic OpenAI-compatible endpoint explicitly deferred**: the user considered testing
+  against DeepSeek, then noted OpenRouter already covers nearly everything they'd want to test
+  this way, so there's no urgency. Also surfaced a real design question for later: this
+  provider naturally wants to support **multiple named custom endpoints** (e.g. "DeepSeek" and
+  a separate local endpoint, each with its own name/base URL/key) rather than the single fixed
+  slot every other `ProviderId` variant has — a bigger data-model change than a normal provider
+  addition (a user-defined list, not a fixed enum variant), with Settings needing to show the
+  user-given name per instance plus an "add another" action. Not implemented; noted in TODO.md.
+
 ## In progress / not yet done
 
-- Nothing in progress right now. Gemini is committed and pushed (`9c32d2c`). Only the generic
-  OpenAI-compatible provider remains on the Step 8 list, plus pricing entries once model ids are
-  confirmed via testing.
+- Nothing in progress right now. All Step 8 provider work (Mistral, OpenRouter, Anthropic,
+  Gemini, plus the deferred-endpoint decision) is committed and pushed. Deciding next steps with
+  the user — Step 9 (UI polish) is the natural next stop per the original roadmap.
 
 ## Known issues / incidents
 
