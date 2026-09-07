@@ -124,7 +124,9 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
   - **Manually tested by the user with a real key, fully working**: configured the key, models loaded, ran a real prompt successfully end to end.
 - [x] **Anthropic** (`providers/anthropic.rs`) — Messages API, several real wire-format differences from every other provider so far: `x-api-key` header (not `Authorization: Bearer`) + mandatory `anthropic-version` header; system prompt is a top-level `system` field, not a `role: system` message; `max_tokens` is *required* by the API (we fall back to `DEFAULT_MAX_TOKENS = 4096` when unset); `temperature`/`top_p` are deprecated and rejected outright (HTTP 400) for current models unless left at defaults, so `ModelCapabilities` reports both unsupported and we never send them. Registered in `ProviderRegistry`. 3 unit tests.
   - **Manually tested by the user with a real key, fully working end to end.**
-- [ ] Google (need to confirm exact naming/API — "Gemini API" vs "Google AI Studio" vs Vertex AI — researching while the user is away)
+- [x] **Google Gemini** (`providers/gemini.rs`) — confirmed this means the **Gemini API** (Google AI Studio, plain API key), not Vertex AI (needs a GCP project + different auth). More wire-format differences: `x-goog-api-key` header (not Bearer — there's a `?key=` query-param fallback too, but the header avoids leaking the key into URLs/logs); the model id is part of the URL path (`.../models/{id}:generateContent`), not a body field; user/system content is `contents`/`systemInstruction` objects made of `parts`; generation params nest under a `generationConfig` object with camelCase names (`topP`, `maxOutputTokens`). `/v1beta/models` reports `inputTokenLimit` and `supportedGenerationMethods` per model directly (filtered on `generateContent`), similar quality to Mistral/OpenRouter — no capability heuristics needed. No reasoning-model-style param restriction assumed for Gemini's "thinking" models (no evidence found, unlike OpenAI/Anthropic). Registered in `ProviderRegistry`. 2 unit tests.
+  - `cargo check`/`clippy`/`fmt --check`/`test` (36 passed, 1 ignored) all clean.
+  - **Manually tested by the user with a real key, fully working end to end.**
 - [ ] Generic OpenAI-compatible endpoint
 - [ ] Pricing entries for each provider once real model ids are confirmed via live testing
 
@@ -172,10 +174,14 @@ Discussed 2026-09-07, explicitly not to be implemented until the user asks:
   pages and opens a PR (or otherwise updates) that maintained `pricing.json` in the repo — a
   follow-up project of its own, not part of the app itself.
 - **Use OpenRouter's own pricing as an approximate stand-in for other providers**, per the
-  user's idea: OpenRouter's per-model prices for e.g. OpenAI models track the vendor's own
-  pricing fairly closely, so they could seed/cross-check our `pricing.json` for providers that
-  don't expose pricing themselves — shown in the UI with a clear "approximate, order of
-  magnitude only" disclaimer rather than presented as exact.
+  user's idea (reaffirmed 2026-09-07 after seeing Gemini/Anthropic show no cost): OpenRouter's
+  per-model prices for e.g. OpenAI/Gemini/Anthropic models track the vendor's own pricing fairly
+  closely, so they could seed/cross-check our `pricing.json` for providers that don't expose
+  pricing themselves. **Important caveat the user explicitly flagged**: OpenRouter takes a
+  commission on top of the underlying provider's price, so a cost estimate derived from
+  OpenRouter's numbers is a *ceiling*, slightly higher than the real provider cost — must be
+  clearly disclosed as such in the UI (e.g. "≈ estimate via OpenRouter pricing, may be an
+  overestimate"), never presented as an exact figure.
 - **LiteLLM's `model_prices_and_context_window.json`**
   (raw: `https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json`)
   is a large (thousands of entries, effectively every provider/model) community-maintained

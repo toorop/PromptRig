@@ -4,6 +4,7 @@
 //! providers.
 
 pub mod anthropic;
+pub mod gemini;
 pub mod mistral;
 pub mod openai;
 pub mod openrouter;
@@ -64,6 +65,7 @@ impl ProviderRegistry {
             ProviderId::Anthropic,
             Box::new(anthropic::AnthropicProvider::new()),
         );
+        providers.insert(ProviderId::Gemini, Box::new(gemini::GeminiProvider::new()));
         Self { providers }
     }
 
@@ -103,7 +105,7 @@ mod tests {
 
         // `.err().unwrap()` rather than `.unwrap_err()`: the latter requires the Ok type
         // (`&dyn LlmProvider` here) to implement `Debug`, which it doesn't.
-        let err = registry.get(ProviderId::Gemini).err().unwrap();
+        let err = registry.get(ProviderId::OpenAiCompatible).err().unwrap();
         assert!(matches!(err, AppError::Provider(_)));
     }
 }

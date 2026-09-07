@@ -12,10 +12,9 @@ approved by the user.
 
 Adding new providers to Step 8 **one at a time**; each gets committed + pushed individually.
 Mistral, OpenRouter, and Anthropic are done, committed, and (OpenRouter + Anthropic) fully
-verified working end to end with real keys. User is stepping away to eat, back afterward to do
-**Google** next — researching the exact API/product naming (Gemini API vs Google AI Studio vs
-Vertex AI) while they're away so it's ready when they return. The generic OpenAI-compatible
-endpoint still has no obvious test target.
+verified working end to end with real keys. **Gemini is implemented and verified compiling
+while the user was away eating — waiting on their manual test with a real key before
+committing.** The generic OpenAI-compatible endpoint still has no obvious test target.
 
 ## Done so far
 
@@ -407,10 +406,34 @@ endpoint still has no obvious test target.
 - **Manually tested by the user with a real key — fully working end to end.**
 - `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (34 passed, 1 ignored) clean.
 
+**Gemini provider** (implemented, not yet committed — awaiting the user's live test):
+- Confirmed it's the **Gemini API** (Google AI Studio, plain API key) they want, not Vertex AI
+  (which needs a GCP project and OAuth/service-account auth — not realistic for someone with
+  "just a Google account").
+- `providers/gemini.rs`: `x-goog-api-key` header (a `?key=` query-param fallback exists but
+  leaks the key into URLs/logs, so header is the documented-preferred approach); the model id is
+  in the URL path (`.../models/{id}:generateContent`), not a JSON body field — `ModelInfo::model_id`
+  strips the `models/` prefix `/v1beta/models` returns, and it's re-added when building the
+  request URL; `contents`/`systemInstruction` are objects made of `parts` (Gemini is
+  multi-modal-capable, we only ever send one text part); generation params nest under a
+  `generationConfig` object with camelCase names (`topP`, `maxOutputTokens`).
+- `/v1beta/models` reports `inputTokenLimit` and `supportedGenerationMethods` per model directly
+  (filtered on containing `"generateContent"`) — similar precision to Mistral/OpenRouter, no
+  capability-guessing heuristic needed. No reasoning-model-style param restriction assumed for
+  Gemini's "thinking" models — found no evidence of one (unlike OpenAI/Anthropic, both
+  confirmed via docs to restrict sampling params for their reasoning-capable models).
+- Registered in `ProviderRegistry`. 2 unit tests (prefix stripping, request shape with
+  camelCase `generationConfig` fields).
+- `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (36 passed, 1 ignored) clean.
+- **Manually tested by the user with a real key — fully working end to end.** They also noted
+  (again) that Gemini/Anthropic show no cost estimate, reaffirming the deferred idea of using
+  OpenRouter's own pricing as a cross-provider stand-in — with an explicit caveat they raised
+  this time: OpenRouter takes a commission, so a derived estimate would be a *ceiling*, not
+  exact, and must be disclosed as such if this ever gets built (see TODO.md's Deferred ideas).
+
 ## In progress / not yet done
 
-- Anthropic is committed and pushed. User is stepping away to eat; researching Google's API
-  naming/shape in the meantime (see below) so it's ready when they're back.
+- Gemini implemented, verified, and manually tested successfully — **not yet committed**.
 
 ## Known issues / incidents
 
