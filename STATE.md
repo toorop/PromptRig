@@ -2,7 +2,8 @@
 
 Hand-off document: what's done, what's in progress, decisions made, and known issues — enough
 for a new session to resume cleanly. **Update this file in every commit that changes project
-state.** See [TODO.md](./TODO.md) for the detailed task checklist and
+state.** See [TODO.md](./TODO.md) for the detailed task checklist, [AGENTS.md](./AGENTS.md) for
+the working agreement (commit/state discipline, destructive-command precautions), and
 `/home/toorop/.claude/plans/purrfect-frolicking-donut.md` for the full architecture plan
 approved by the user.
 
@@ -64,5 +65,11 @@ approved by the user.
 
 ## Next action
 
-Commit the scaffold + Step 0 doc/meta files. Ask the user whether to smoke-test `tauri dev`
-now (opens a window on their desktop) or move straight to Step 1 (Rust domain & errors).
+Smoke-test `npm run tauri dev` (user confirmed it's fine to open a window on their desktop),
+then move to Step 1 (Rust domain & errors).
+
+## Process note
+
+The user asked for an `AGENTS.md` codifying the commit/STATE.md discipline directly in the
+repo (not just in assistant memory), after this rule had to be repeated. It's in place at
+[AGENTS.md](./AGENTS.md) — follow it.

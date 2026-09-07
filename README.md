@@ -57,7 +57,8 @@ npm run tauri dev
 
 Contributions are welcome once the project reaches a more stable shape. Please read
 [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) before participating, and see
-[SECURITY.md](./SECURITY.md) for how to report a vulnerability.
+[SECURITY.md](./SECURITY.md) for how to report a vulnerability. If you're an AI coding agent
+working on this repo, read [AGENTS.md](./AGENTS.md) first.
 
 ## License
 
