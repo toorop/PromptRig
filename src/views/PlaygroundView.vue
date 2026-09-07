@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
-import { commands, type ModelInfo, type ProviderId, type Run } from "@/lib/bindings";
+import { commands, type ProviderId, type Run } from "@/lib/bindings";
 import { useProvidersStore } from "@/stores/providers";
 import { usePromptDraftStore } from "@/stores/promptDraft";
 import { Button } from "@/components/ui/button";
@@ -55,9 +55,6 @@ function saveLastSelection(selection: LastSelection) {
 }
 
 const selectedProvider = ref<ProviderId>();
-const models = ref<ModelInfo[]>([]);
-const modelsLoading = ref(false);
-const modelsError = ref<string | null>(null);
 const selectedModelId = ref<string>();
 
 const running = ref(false);
@@ -67,6 +64,13 @@ const runError = ref<string | null>(null);
 const configuredProviders = computed(() =>
   providersStore.providers.filter((p) => p.implemented && p.configured),
 );
+
+// Model lists live in the providers store (cached for the app's session — see
+// stores/providers.ts) rather than as local state here, so picking the same provider again
+// (or on the Compare view) doesn't re-fetch.
+const models = computed(() => (selectedProvider.value ? providersStore.modelsByProvider[selectedProvider.value] ?? [] : []));
+const modelsLoading = computed(() => (selectedProvider.value ? !!providersStore.modelsLoading[selectedProvider.value] : false));
+const modelsError = computed(() => (selectedProvider.value ? providersStore.modelsError[selectedProvider.value] ?? null : null));
 
 const selectedModel = computed(
   () => models.value.find((m) => m.model_id === selectedModelId.value) ?? null,
@@ -94,28 +98,28 @@ onMounted(async () => {
 });
 
 watch(selectedProvider, async (provider) => {
-  models.value = [];
   selectedModelId.value = undefined;
-  modelsError.value = null;
   if (!provider) return;
 
-  modelsLoading.value = true;
-  const result = await commands.listModels(provider);
-  if (result.status === "ok") {
-    models.value = result.data;
+  const fetchedModels = await providersStore.loadModels(provider);
 
-    // Prefer the model used last time with this same provider. Otherwise, leave it unselected
-    // rather than guessing — auto-picking an arbitrary (possibly expensive) model was the exact
-    // surprise this is meant to avoid.
-    const remembered = loadLastSelection();
-    if (remembered.provider === provider && models.value.some((m) => m.model_id === remembered.modelId)) {
-      selectedModelId.value = remembered.modelId;
-    }
-  } else {
-    modelsError.value = result.error.message;
+  // Prefer the model used last time with this same provider. Otherwise, leave it unselected
+  // rather than guessing — auto-picking an arbitrary (possibly expensive) model was the exact
+  // surprise this is meant to avoid.
+  const remembered = loadLastSelection();
+  if (remembered.provider === provider && fetchedModels.some((m) => m.model_id === remembered.modelId)) {
+    selectedModelId.value = remembered.modelId;
   }
-  modelsLoading.value = false;
 });
+
+async function refreshModels() {
+  if (!selectedProvider.value) return;
+  // Clear the current selection first so the Select shows the "Loading models…" placeholder
+  // instead of just greying out over whatever was already selected — otherwise there's no
+  // visible sign anything is happening.
+  selectedModelId.value = undefined;
+  await providersStore.loadModels(selectedProvider.value, { force: true });
+}
 
 watch([selectedProvider, selectedModelId], ([provider, modelId]) => {
   if (provider && modelId) {
@@ -171,16 +175,26 @@ async function runGeneration() {
 
       <div class="flex flex-col gap-1.5">
         <Label class="text-xs text-muted-foreground">Model</Label>
-        <Select v-model="selectedModelId" :disabled="!selectedProvider || modelsLoading">
-          <SelectTrigger class="w-64">
-            <SelectValue :placeholder="modelsLoading ? 'Loading models…' : 'Select a model'" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="m in models" :key="m.model_id" :value="m.model_id">
-              {{ m.display_name }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <div class="flex gap-1.5">
+          <Select v-model="selectedModelId" :disabled="!selectedProvider || modelsLoading">
+            <SelectTrigger class="w-64">
+              <SelectValue :placeholder="modelsLoading ? 'Loading models…' : 'Select a model'" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="m in models" :key="m.model_id" :value="m.model_id">
+                {{ m.display_name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            :disabled="!selectedProvider || modelsLoading"
+            title="Re-fetch the model list from the provider"
+            @click="refreshModels"
+          >
+            ↻
+          </Button>
+        </div>
       </div>
 
       <Button class="ml-auto" size="lg" :disabled="!canRun" @click="runGeneration">

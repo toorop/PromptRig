@@ -1,10 +1,17 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
-import { commands, type ProviderStatus } from "@/lib/bindings";
+import { reactive, ref } from "vue";
+import { commands, type ModelInfo, type ProviderId, type ProviderStatus } from "@/lib/bindings";
 
-// Shared between SettingsView (which changes provider configuration) and PlaygroundView (which
-// only reads it) — a Pinia store avoids Playground needing to know when Settings changes
+// Shared between SettingsView (which changes provider configuration) and Playground/Compare
+// (which only read it) — a Pinia store avoids one view needing to know when another changes
 // something, or re-fetching on every navigation.
+//
+// The model list per provider is cached here too, for the app's lifetime (in memory — nothing
+// is persisted to disk, so a fresh launch always re-fetches). This was a deliberate choice over
+// a longer-lived on-disk cache: picking the same provider on several Compare columns no longer
+// fires duplicate API calls, while every app launch still shows whatever the provider currently
+// makes available — no "why is this a day stale" surprise, and no cache-invalidation logic to
+// get wrong. `loadModels(provider, { force: true })` bypasses the cache for a manual refresh.
 export const useProvidersStore = defineStore("providers", () => {
   const providers = ref<ProviderStatus[]>([]);
   const loading = ref(false);
@@ -24,5 +31,37 @@ export const useProvidersStore = defineStore("providers", () => {
     loading.value = false;
   }
 
-  return { providers, loading, error, refresh };
+  const modelsByProvider = reactive<Partial<Record<ProviderId, ModelInfo[]>>>({});
+  const modelsLoading = reactive<Partial<Record<ProviderId, boolean>>>({});
+  const modelsError = reactive<Partial<Record<ProviderId, string | null>>>({});
+
+  async function loadModels(provider: ProviderId, opts?: { force?: boolean }): Promise<ModelInfo[]> {
+    if (!opts?.force && modelsByProvider[provider]) {
+      return modelsByProvider[provider]!;
+    }
+
+    modelsLoading[provider] = true;
+    modelsError[provider] = null;
+
+    const result = await commands.listModels(provider);
+    if (result.status === "ok") {
+      modelsByProvider[provider] = result.data;
+    } else {
+      modelsError[provider] = result.error.message;
+    }
+
+    modelsLoading[provider] = false;
+    return modelsByProvider[provider] ?? [];
+  }
+
+  return {
+    providers,
+    loading,
+    error,
+    refresh,
+    modelsByProvider,
+    modelsLoading,
+    modelsError,
+    loadModels,
+  };
 });

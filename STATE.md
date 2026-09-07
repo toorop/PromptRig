@@ -10,10 +10,9 @@ approved by the user.
 
 ## Current step
 
-Steps 0–7 are complete, committed, and pushed. Step 7 was manually verified end-to-end by the
-user (compared multiple OpenAI models, including one with no pricing entry — fallback worked
-correctly). About to start **Step 8 — Generalize providers**, beginning with model list caching
-(see "Deferred ideas" below) before adding new providers.
+Steps 0–7 are complete, committed, and pushed. **Step 8 is in progress**: model list caching is
+implemented and manually verified by the user — awaiting commit before moving on to adding new
+providers (Anthropic, Gemini, Mistral, OpenRouter, generic OpenAI-compatible).
 
 ## Done so far
 
@@ -316,9 +315,38 @@ correctly). About to start **Step 8 — Generalize providers**, beginning with m
   freshness window, plus a manual "Refresh models" action to force a re-fetch. Added as the
   first item of Step 8, ahead of adding more providers, so every provider benefits from it.
 
+**Step 8 (in progress) — model list caching** (implemented, not yet committed — see below):
+- The user reconsidered the originally-discussed 24h SQLite cache and proposed something
+  simpler: an in-memory, session-lifetime cache (Pinia store), cleared on app restart. Agreed
+  this is actually the better fit — guarantees a fresh model list on every launch (no
+  staleness/TTL logic to get wrong) while fully solving the real observed problem (duplicate
+  `list_models` calls when the same provider is picked on multiple Compare columns, or on both
+  Playground and Compare).
+- `stores/providers.ts`: added `modelsByProvider`/`modelsLoading`/`modelsError` (all keyed by
+  `ProviderId`) and `loadModels(provider, { force? })`. `PlaygroundView`/`CompareView` now call
+  this instead of `commands.listModels` directly. `CompareColumn` (`stores/compare.ts`) dropped
+  its own per-column `models`/`modelsLoading`/`modelsError` fields — reads the shared cache
+  keyed by its own `provider` instead.
+- Added a manual "↻ Refresh" button next to every model picker (Playground, each Compare
+  column). Bug found and fixed along the way: refreshing didn't visibly show "Loading models…"
+  in Playground (it did in Compare) — turned out to be because a `Select` only shows its
+  placeholder when nothing is selected; with a model already chosen, refreshing just greyed out
+  the existing value instead of showing the loading text. Fixed by clearing the selection before
+  triggering a forced reload, in both views.
+- `model_cache` (the SQLite table from Step 3) stays in the schema, unused — not removed, since
+  a future feature (e.g. offline mode) could still want it.
+- Hit a Pinia+Vite HMR quirk while iterating: the live store instance in memory didn't pick up
+  newly-added fields/methods via hot-reload, throwing `TypeError: providersStore.loadModels is
+  not a function`. Not a real code bug — fixed by fully restarting `tauri dev` rather than
+  relying on HMR. Worth remembering if similar "function is not defined" errors appear right
+  after adding something to a Pinia store during dev.
+- `npm run build` clean throughout; manually verified live in `tauri dev` by the user twice
+  (once for the cache itself, once for the refresh-button placeholder fix).
+
 ## In progress / not yet done
 
-- Nothing in progress right now — Steps 0–7 are all committed and pushed. Step 8 hasn't started.
+- The model-caching work above is complete but **not yet committed** — awaiting go-ahead per
+  the step-by-step workflow.
 
 ## Known issues / incidents
 

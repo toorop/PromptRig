@@ -109,7 +109,12 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 
 ## Step 8 — Generalize providers
 
-- [ ] **Model list caching (moved up from a deferred idea, decided 2026-09-07)**: `list_models` currently hits the provider's API every time — felt as a real annoyance during Step 7 testing (picking the same provider on 2+ Compare columns fires duplicate live requests). Use the `model_cache` table (created in Step 3, unused since): `list_models` checks the cache first (fresh if < 24h old), only calls the provider API on a cache miss/stale entry, plus a manual "Refresh models" affordance to force a re-fetch. Do this first, before adding more providers, so every provider benefits from it.
+- [x] **Model list caching** — the user reconsidered the original 24h-SQLite-cache plan and proposed something simpler: cache in memory for the app's session only (a Pinia store), cleared on restart. Better fit than the SQLite `model_cache` table idea: guarantees a fresh model list on every launch (no staleness window to reason about), and fully solves the actual observed problem (picking the same provider on 2+ Compare columns, or on both Playground and Compare, no longer re-fetches) with zero backend changes.
+  - `stores/providers.ts` extended with `modelsByProvider`/`modelsLoading`/`modelsError` (keyed by `ProviderId`) and `loadModels(provider, { force? })` — returns the cached list unless `force: true` or nothing cached yet.
+  - `PlaygroundView` and `CompareView` both call `providersStore.loadModels(...)` instead of `commands.listModels(...)` directly; `CompareColumn` (in `stores/compare.ts`) no longer keeps its own `models`/`modelsLoading`/`modelsError` — reads the shared cache by its `provider` instead.
+  - Added a manual "↻ Refresh" button next to each model picker (Playground and every Compare column) that calls `loadModels(provider, { force: true })` — also clears the current model selection first, so the `Select`'s "Loading models…" placeholder actually shows (it only appears when nothing is selected; otherwise the previously-selected value stays displayed, just greyed out) — found via live testing, same session.
+  - The `model_cache` SQLite table (Step 3) stays unused for now; not removed, since it could still be useful later (e.g. an offline mode).
+  - `npm run build` clean throughout; verified live in `tauri dev` (including working around a Pinia+Vite HMR quirk — a stale in-memory store instance missing new fields — by doing a full dev-server restart rather than relying on hot-reload).
 - [ ] Anthropic
 - [ ] Google Gemini
 - [ ] Mistral

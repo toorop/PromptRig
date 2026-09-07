@@ -1,17 +1,18 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import type { ModelInfo, ProviderId, Run } from "@/lib/bindings";
+import type { ProviderId, Run } from "@/lib/bindings";
 
 // Column state lives here (not as local component state in CompareView) so it survives
 // navigating away and back — Vue destroys a view's local state when its route is left, but a
 // Pinia store persists for the app's lifetime.
+//
+// Model lists are deliberately *not* stored per column: they live in the providers store's
+// session cache (stores/providers.ts) keyed by provider, so two columns on the same provider
+// share one fetch instead of each keeping their own copy.
 export interface CompareColumn {
   key: string;
   provider?: ProviderId;
   modelId?: string;
-  models: ModelInfo[];
-  modelsLoading: boolean;
-  modelsError: string | null;
   run: Run | null;
   runError: string | null;
   running: boolean;
@@ -24,9 +25,6 @@ function makeColumn(): CompareColumn {
     key: `col-${nextKey}`,
     provider: undefined,
     modelId: undefined,
-    models: [],
-    modelsLoading: false,
-    modelsError: null,
     run: null,
     runError: null,
     running: false,

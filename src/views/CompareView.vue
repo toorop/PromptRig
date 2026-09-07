@@ -46,18 +46,32 @@ const configuredProviders = computed(() =>
 async function onProviderChange(column: CompareColumn, provider: ProviderId | undefined) {
   column.provider = provider;
   column.modelId = undefined;
-  column.models = [];
-  column.modelsError = null;
   if (!provider) return;
 
-  column.modelsLoading = true;
-  const result = await commands.listModels(provider);
-  if (result.status === "ok") {
-    column.models = result.data;
-  } else {
-    column.modelsError = result.error.message;
+  // Cached in the providers store — picking the same provider on another column reuses this
+  // instead of firing a duplicate request.
+  await providersStore.loadModels(provider);
+}
+
+function modelsForColumn(column: CompareColumn) {
+  return column.provider ? (providersStore.modelsByProvider[column.provider] ?? []) : [];
+}
+
+function modelsLoadingForColumn(column: CompareColumn) {
+  return column.provider ? !!providersStore.modelsLoading[column.provider] : false;
+}
+
+function modelsErrorForColumn(column: CompareColumn) {
+  return column.provider ? (providersStore.modelsError[column.provider] ?? null) : null;
+}
+
+async function refreshModelsForColumn(column: CompareColumn) {
+  if (column.provider) {
+    // Clear the current selection first so the Select shows the "Loading models…" placeholder
+    // instead of just greying out over whatever was already selected.
+    column.modelId = undefined;
+    await providersStore.loadModels(column.provider, { force: true });
   }
-  column.modelsLoading = false;
 }
 
 const running = ref(false);
@@ -198,21 +212,34 @@ async function rerunColumn(column: CompareColumn) {
               </SelectContent>
             </Select>
 
-            <Select
-              :model-value="column.modelId"
-              :disabled="!column.provider || column.modelsLoading"
-              @update:model-value="(value) => (column.modelId = value as string)"
-            >
-              <SelectTrigger>
-                <SelectValue :placeholder="column.modelsLoading ? 'Loading models…' : 'Model'" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="m in column.models" :key="m.model_id" :value="m.model_id">
-                  {{ m.display_name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <p v-if="column.modelsError" class="text-xs text-destructive">{{ column.modelsError }}</p>
+            <div class="flex gap-1.5">
+              <Select
+                :model-value="column.modelId"
+                :disabled="!column.provider || modelsLoadingForColumn(column)"
+                @update:model-value="(value) => (column.modelId = value as string)"
+              >
+                <SelectTrigger>
+                  <SelectValue :placeholder="modelsLoadingForColumn(column) ? 'Loading models…' : 'Model'" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="m in modelsForColumn(column)" :key="m.model_id" :value="m.model_id">
+                    {{ m.display_name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="sm"
+                :disabled="!column.provider || modelsLoadingForColumn(column)"
+                title="Re-fetch the model list from the provider"
+                @click="refreshModelsForColumn(column)"
+              >
+                ↻
+              </Button>
+            </div>
+            <p v-if="modelsErrorForColumn(column)" class="text-xs text-destructive">
+              {{ modelsErrorForColumn(column) }}
+            </p>
           </div>
 
           <Button
