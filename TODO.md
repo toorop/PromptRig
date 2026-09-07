@@ -22,7 +22,7 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 - [x] Remove the scaffold's placeholder `greet` command
 - [x] Verify frontend typechecks and builds (`npm run build`)
 - [x] Verify Rust backend compiles (`cargo check`)
-- [ ] Smoke-test `npm run tauri dev` actually opens a window (deferred — needs user confirmation before popping a GUI window on their live desktop)
+- [x] Smoke-test `npm run tauri dev` actually opens a window (needed `WEBKIT_DISABLE_DMABUF_RENDERER=1` on this NVIDIA/Wayland machine — see STATE.md)
 - [x] `README.md` — real project description + usage instructions (English, public repo)
 - [x] `TODO.md` (this file)
 - [x] `STATE.md`

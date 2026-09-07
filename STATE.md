@@ -44,6 +44,12 @@ approved by the user.
 
 ## Known issues / incidents
 
+- **Linux + NVIDIA + Wayland**: `npm run tauri dev` crashes immediately after opening the
+  window (`Gdk-Message: Error 71 (Protocol error) dispatching to Wayland display`) on the dev
+  machine (NVIDIA proprietary driver, Hyprland/Wayland session) — a known WebKitGTK/DMA-BUF
+  renderer issue, not an app bug. Workaround: run with `WEBKIT_DISABLE_DMABUF_RENDERER=1` set.
+  To document in `docs/development.md` (Linux troubleshooting) once that file exists.
+
 - **Data-loss incident (recovered):** running `create-tauri-app ... --force` in the non-empty
   project directory silently deleted `docs/start.md` (the user's original spec), even though
   that path was unrelated to the Tauri template. Restored verbatim from conversation history
@@ -65,8 +71,8 @@ approved by the user.
 
 ## Next action
 
-Smoke-test `npm run tauri dev` (user confirmed it's fine to open a window on their desktop),
-then move to Step 1 (Rust domain & errors).
+User is creating the GitHub repo now; once we have the remote URL, add it and push. Then move
+to Step 1 (Rust domain & errors).
 
 ## Process note
 
