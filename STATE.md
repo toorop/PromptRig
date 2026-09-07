@@ -373,7 +373,7 @@ checking; the generic OpenAI-compatible endpoint has no obvious test target yet.
   Verified live in `tauri dev` (a full restart was needed again — the file watcher didn't
   auto-pick-up the new `providers/mistral.rs` file on its own).
 
-**OpenRouter provider** (implemented, not yet committed — see below):
+**OpenRouter provider** (committed & pushed, `12b6710`):
 - `providers/openrouter.rs`: an aggregator behind one OpenAI-compatible Chat Completions API.
   `/v1/models` reports `context_length` and a `supported_parameters` array per model directly —
   the most precise capability data of any provider so far, no heuristics needed. OpenRouter's
@@ -390,9 +390,7 @@ checking; the generic OpenAI-compatible endpoint has no obvious test target yet.
 
 ## In progress / not yet done
 
-- OpenRouter is complete but **not yet committed**. Moving to Anthropic next — user found their
-  API key. Commit+push after every provider individually (user's explicit preference, especially
-  given they may need to stop with little notice).
+- OpenRouter is committed and pushed. Moving to Anthropic next.
 
 ## Known issues / incidents
 
