@@ -23,5 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
-# Local Claude Code settings (per-machine permissions, not project config)
+# Local Claude Code session state (per-machine, not project config)
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
