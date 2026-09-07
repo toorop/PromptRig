@@ -10,11 +10,12 @@ approved by the user.
 
 ## Current step
 
-Adding new providers to Step 8 **one at a time**; each gets committed + pushed individually
-(the user wants frequent commits, especially since they may need to stop mid-session). Mistral
-and OpenRouter are done and committed (OpenRouter fully verified working end to end). Moving to
-**Anthropic** next — user found their API key. Gemini (has a Google account) still needs
-checking; the generic OpenAI-compatible endpoint has no obvious test target yet.
+Adding new providers to Step 8 **one at a time**; each gets committed + pushed individually.
+Mistral, OpenRouter, and Anthropic are done, committed, and (OpenRouter + Anthropic) fully
+verified working end to end with real keys. User is stepping away to eat, back afterward to do
+**Google** next — researching the exact API/product naming (Gemini API vs Google AI Studio vs
+Vertex AI) while they're away so it's ready when they return. The generic OpenAI-compatible
+endpoint still has no obvious test target.
 
 ## Done so far
 
@@ -388,9 +389,28 @@ checking; the generic OpenAI-compatible endpoint has no obvious test target yet.
 - `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (31 passed, 1 ignored) clean.
   Needed another full `tauri dev` restart (same file-watcher limitation as Mistral).
 
+**Anthropic provider** (implemented, not yet committed — see below):
+- `providers/anthropic.rs`: Messages API. Several real wire-format differences from every other
+  provider so far, each independently verified against the official docs (a summarized fetch
+  first claimed `Authorization: Bearer` for auth, which turned out wrong — cross-checked against
+  multiple independent sources before trusting `x-api-key`):
+  - `x-api-key` header (not `Authorization: Bearer`) + mandatory `anthropic-version` header.
+  - System prompt is a top-level `system` field, not a `{role: "system"}` message.
+  - `max_tokens` is *required* by the API (unlike every OpenAI-shaped provider, where it's
+    optional) — falls back to `DEFAULT_MAX_TOKENS = 4096` when the caller hasn't set one.
+  - `temperature`/`top_p` are deprecated and rejected outright (HTTP 400) for current models
+    unless left at their defaults — `ModelCapabilities` reports both unsupported so the UI never
+    shows those controls for Anthropic, and we never send them (defense in depth, same pattern
+    as OpenAI's reasoning-model handling).
+- Registered in `ProviderRegistry`. 3 unit tests (system-at-top-level shape, temperature/top_p
+  never sent, default max_tokens fallback).
+- **Manually tested by the user with a real key — fully working end to end.**
+- `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (34 passed, 1 ignored) clean.
+
 ## In progress / not yet done
 
-- OpenRouter is committed and pushed. Moving to Anthropic next.
+- Anthropic is complete but **not yet committed**. User is about to step away (back after
+  eating) to continue with Google next.
 
 ## Known issues / incidents
 

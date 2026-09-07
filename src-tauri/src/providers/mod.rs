@@ -3,6 +3,7 @@
 //! section — this is deliberately pragmatic rather than trying to hide every difference between
 //! providers.
 
+pub mod anthropic;
 pub mod mistral;
 pub mod openai;
 pub mod openrouter;
@@ -59,6 +60,10 @@ impl ProviderRegistry {
             ProviderId::OpenRouter,
             Box::new(openrouter::OpenRouterProvider::new()),
         );
+        providers.insert(
+            ProviderId::Anthropic,
+            Box::new(anthropic::AnthropicProvider::new()),
+        );
         Self { providers }
     }
 
@@ -98,7 +103,7 @@ mod tests {
 
         // `.err().unwrap()` rather than `.unwrap_err()`: the latter requires the Ok type
         // (`&dyn LlmProvider` here) to implement `Debug`, which it doesn't.
-        let err = registry.get(ProviderId::Anthropic).err().unwrap();
+        let err = registry.get(ProviderId::Gemini).err().unwrap();
         assert!(matches!(err, AppError::Provider(_)));
     }
 }

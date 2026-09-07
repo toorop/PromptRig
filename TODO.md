@@ -122,8 +122,9 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 - [x] **OpenRouter** (`providers/openrouter.rs`) — the friendliest provider yet: `/v1/models` reports `context_length` and a `supported_parameters` array per model directly, so capabilities come straight from the API (no heuristics like OpenAI, more precise than even Mistral). OpenRouter itself translates to whatever wire format the underlying model needs, so no reasoning-model quirk to handle on our side either. Registered in `ProviderRegistry`. 3 unit tests (capabilities-from-supported-params, both directions, plus request shape).
   - Pricing: OpenRouter's `/v1/models` also returns real per-model pricing (unlike every other provider) — noted as the deferred "use OpenRouter's own pricing" idea from Step 4, still not implemented; costs show "—" like any unpriced model for now.
   - **Manually tested by the user with a real key, fully working**: configured the key, models loaded, ran a real prompt successfully end to end.
-- [ ] Anthropic
-- [ ] Google Gemini
+- [x] **Anthropic** (`providers/anthropic.rs`) — Messages API, several real wire-format differences from every other provider so far: `x-api-key` header (not `Authorization: Bearer`) + mandatory `anthropic-version` header; system prompt is a top-level `system` field, not a `role: system` message; `max_tokens` is *required* by the API (we fall back to `DEFAULT_MAX_TOKENS = 4096` when unset); `temperature`/`top_p` are deprecated and rejected outright (HTTP 400) for current models unless left at defaults, so `ModelCapabilities` reports both unsupported and we never send them. Registered in `ProviderRegistry`. 3 unit tests.
+  - **Manually tested by the user with a real key, fully working end to end.**
+- [ ] Google (need to confirm exact naming/API — "Gemini API" vs "Google AI Studio" vs Vertex AI — researching while the user is away)
 - [ ] Generic OpenAI-compatible endpoint
 - [ ] Pricing entries for each provider once real model ids are confirmed via live testing
 
