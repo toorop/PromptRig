@@ -27,6 +27,13 @@ thiserror = "2.0.20"
 keyring = "4.2.0"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 rusqlite_migration = "2.6.0"
+async-trait = "0.1.92"
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls"] }
+# Not used directly: reqwest's "rustls" feature pulls in aws-lc-rs as its crypto backend, which
+# needs NASM to build its assembly-optimized code on Windows. GitHub's windows-latest runners
+# don't ship NASM, so we depend on aws-lc-rs ourselves just to turn on "prebuilt-nasm" (ships
+# precompiled objects instead) via Cargo's feature unification across the whole build.
+aws-lc-rs = { version = "1.18.1", features = ["prebuilt-nasm"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

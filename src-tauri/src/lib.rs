@@ -1,8 +1,10 @@
-// Providers are added incrementally as the project grows — see docs/architecture.md and
-// TODO.md for the current step. `storage` isn't wired into the Tauri app yet: no command needs
-// it until Step 5/6, so it's only exercised by its own tests for now.
+// See docs/architecture.md and TODO.md for the current step. `storage`, `providers`, and
+// `pricing` aren't wired into the Tauri app yet: no command needs them until Step 5, so they're
+// only exercised by their own tests for now.
 pub mod commands;
 pub mod domain;
+pub mod pricing;
+pub mod providers;
 pub mod secrets;
 pub mod storage;
 

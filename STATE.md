@@ -10,10 +10,8 @@ approved by the user.
 
 ## Current step
 
-Steps 0–3 are complete, committed, and pushed. About to start **Step 4 — First provider
-(OpenAI) + registry**: `LlmProvider` trait (`async-trait`) + `ProviderRegistry`, the OpenAI
-implementation (`test_connection`, `list_models`, `generate`), and `pricing/` with a seeded
-`pricing.json`.
+**Step 4 — First provider (OpenAI) + registry**: implemented, verified (tests/clippy/fmt all
+clean), awaiting user review before commit. Steps 0–3 are complete, committed, and pushed.
 
 ## Done so far
 
@@ -104,9 +102,54 @@ implementation (`test_connection`, `list_models`, `generate`), and `pricing/` wi
   (success and failed-run cases), missing id returns `None`. `cargo check`/`clippy --all-targets`
   /`fmt --check` all clean.
 
+**Step 4 — First provider (OpenAI) + registry** (implemented, not yet committed — see below):
+- `providers/mod.rs` — `LlmProvider` trait (`async-trait`, so it can be a trait object) with
+  `test_connection`/`list_models`/`generate`, all taking `api_key: &str` explicitly (providers
+  never touch the keyring themselves — the caller looks the key up via `secrets::get_api_key`).
+  `ProviderRegistry` maps `ProviderId` → `Box<dyn LlmProvider>`; adding a provider is one new
+  module + one line in `ProviderRegistry::new()`.
+- `providers/openai.rs`:
+  - `list_models` calls OpenAI's real `/v1/models` (the actual models available to that key),
+    filters out non-chat models (audio/image/embedding/moderation) via a substring heuristic
+    (`is_chat_model`), and infers `ModelCapabilities` from the model id (`infer_capabilities`) —
+    OpenAI's API doesn't expose capabilities, and a hand-maintained exact-match table would go
+    stale fast given how often the catalog changes.
+  - `is_reasoning_model` (name-prefix heuristic: `o1`/`o3`/`o4`/`gpt-5.6`/`gpt-6`) drives both
+    capability inference and `build_request`: reasoning models get `max_completion_tokens`
+    instead of `max_tokens`, and never get `temperature`/`top_p` even if `params` has them set
+    (belt and suspenders beyond the frontend only showing supported controls).
+  - `generate` calls Chat Completions, measures wall-clock duration with `std::time::Instant`,
+    maps `usage.{prompt_tokens,completion_tokens}` to our `Usage`.
+  - **Caveat, flagged to the user:** the current OpenAI model catalog and pricing (gpt-6-astra,
+    gpt-5.6-sol/terra/luna, gpt-4o-mini) were sourced via web search + OpenAI's docs page,
+    since this is beyond the assistant's training cutoff. Worth double-checking against
+    OpenAI's live pricing/docs pages before relying on it for real spend decisions.
+- `pricing/` — `PricingTable` loaded from an embedded `pricing.json` (`(provider, model_id)` →
+  input/output price per million tokens), `estimate_cost(provider, model_id, usage) -> Option<f64>`
+  (`None` for anything not in the table — missing pricing is expected and fine per the spec).
+  Runtime-overridable pricing file (without recompiling) is deferred to when Tauri path
+  resolution is wired in (Step 5/6) — same "storage layer exists before its full integration"
+  pattern as Step 3.
+- New dependencies: `async-trait`, `reqwest` (`default-features = false`, `json` + `rustls`
+  features — avoids needing OpenSSL). Also added `aws-lc-rs` as a direct dependency purely to
+  enable its `prebuilt-nasm` feature: reqwest's `rustls` feature now pulls in `aws-lc-rs` as its
+  crypto backend, which needs NASM to build assembly-optimized code on Windows, and GitHub's
+  `windows-latest` runners don't ship NASM by default — `prebuilt-nasm` ships precompiled
+  objects instead, sidestepping that CI landmine before we ever hit it.
+- Neither `providers` nor `pricing` are wired into the Tauri app yet — no command needs them
+  until Step 5, consistent with how `storage` was handled in Step 3.
+- 10 new unit tests (23 total, 1 ignored by design): chat-model filter, reasoning-model
+  heuristic, both request-body shapes (regular vs reasoning model), registry resolution
+  (implemented + not-yet-implemented provider), pricing load/estimate/malformed-JSON.
+  `cargo check`/`clippy --all-targets`/`fmt --check` all clean.
+- **Not done:** a real end-to-end call against the live OpenAI API (costs real money, needs a
+  real key) — offered to the user to test manually if they want, same pattern as the keyring
+  `#[ignore]`d integration test in Step 2.
+
 ## In progress / not yet done
 
-- Nothing in progress right now — Steps 0–3 are all committed and pushed. Step 4 hasn't started.
+- Step 4 changes above are complete but **not yet committed** — awaiting user review per the
+  step-by-step workflow (finish a step, stop, wait for go-ahead, then commit + push).
 
 ## Known issues / incidents
 
@@ -140,5 +183,21 @@ implementation (`test_connection`, `list_models`, `generate`), and `pricing/` wi
 
 ## Next action
 
-Start Step 4 (first provider — OpenAI — plus the `LlmProvider` trait, `ProviderRegistry`, and
-`pricing/` with a seeded `pricing.json`).
+Waiting on user review of Step 4 (OpenAI provider + registry + pricing). Once confirmed,
+commit + push, then start Step 5 (Tauri commands + `tauri-specta` generated TS bindings, wiring
+`storage`/`providers`/`pricing` into the app for real).
+
+## Deferred ideas (see TODO.md's "Deferred ideas" section for detail)
+
+Discussed 2026-09-07 — not scheduled, don't start without the user asking:
+- Two separate UI actions: "Refresh models" (per provider, live API call) vs "Update pricing"
+  (fetches a `pricing.json` maintained in the PromptRig GitHub repo). OpenRouter is a confirmed
+  exception — its `/api/v1/models` already returns per-model pricing, so it doesn't need the
+  external pricing file at all.
+- User plans to eventually build a separate bot/agent to keep that repo-hosted pricing.json
+  up to date — out of scope for the app itself.
+- Two more pricing-sourcing ideas noted (full detail in TODO.md): using OpenRouter's own
+  per-model pricing as an approximate cross-provider stand-in (with an "approximate" disclaimer
+  in the UI), and LiteLLM's `model_prices_and_context_window.json` as a reference/cross-check
+  only — user deliberately does not want a hard runtime dependency on an external, unmaintained-
+  risk project for something as central as pricing data.

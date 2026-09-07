@@ -59,9 +59,13 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 
 ## Step 4 — First provider (OpenAI) + registry
 
-- [ ] `providers/mod.rs` — `LlmProvider` trait (`async-trait`) + `ProviderRegistry`
-- [ ] `providers/openai.rs` — `test_connection`, `list_models` (static + dynamic), `generate`
-- [ ] `pricing/` module + `pricing.json` seeded with OpenAI prices
+- [x] `providers/mod.rs` — `LlmProvider` trait (`async-trait`) + `ProviderRegistry` (keyed by `ProviderId`, one line to add a provider)
+- [x] `providers/openai.rs` — `test_connection`, `list_models` (dynamic fetch from `/v1/models`, filtered to chat models, capabilities inferred by name heuristic since OpenAI's API doesn't expose them), `generate` (Chat Completions API, handles the reasoning-model `max_completion_tokens` vs `max_tokens` field-name switch)
+- [x] `pricing/` module + `pricing.json` seeded with OpenAI prices (gpt-4o-mini, gpt-5.6-luna/terra/sol, gpt-6-astra) — **sourced via web search since this is beyond training cutoff; worth double-checking against OpenAI's live pricing page**
+- [x] Not wired into the Tauri app yet (no command needs it until Step 5), consistent with `storage`
+- [x] Added `reqwest` (rustls) + `async-trait`; also added `aws-lc-rs` directly just to enable its `prebuilt-nasm` feature, so the Windows CI build doesn't fail for lack of NASM (reqwest's rustls backend now depends on aws-lc-rs, which needs NASM to build its assembly code on Windows unless prebuilt objects are used)
+- [x] Unit tests: chat-model filter, reasoning-model heuristic, request body shape (both branches), registry resolution (implemented + not-yet-implemented provider), pricing load/estimate/malformed-JSON (10 new tests, 23 total)
+- [ ] Real end-to-end test against the live OpenAI API — not done automatically (costs real money, needs a real key); offered to the user to test manually if they want
 
 ## Step 5 — Tauri commands + generated bindings
 
@@ -111,3 +115,39 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 - [ ] `docs/adding-a-provider.md`
 - [ ] `docs/release.md`
 - [ ] Confirm `TODO.md`/`STATE.md` reflect actual project state
+
+## Deferred ideas (not scheduled — don't start early)
+
+Discussed 2026-09-07, explicitly not to be implemented until the user asks:
+
+- **Two separate update mechanisms in the UI**, per the user's idea: a "Refresh models" action
+  per provider (live call to that provider's model-list API, e.g. `list_models()`, refreshing
+  `model_cache`) and a separate "Update pricing" action, since models and prices change on
+  different schedules and via different sources.
+- **Pricing source per provider differs**: OpenRouter's `/api/v1/models` actually returns a
+  `pricing` object per model (USD per token, prompt/completion) — confirmed via its docs, so
+  OpenRouter pricing can be read directly from its own API, no external file needed. OpenAI
+  (confirmed) and, most likely, Anthropic/Gemini/Mistral do **not** expose pricing via API, so
+  they still need the "maintained file" approach.
+- **A `pricing.json` maintained in the PromptRig GitHub repo**, fetched by the app over HTTP on
+  demand (the "Update pricing" action) — decouples price updates from app releases, per
+  docs/start.md's original requirement. Local user-supplied override file stays a fallback.
+- **A separate bot/agent (the user's idea)** that periodically scrapes/checks provider pricing
+  pages and opens a PR (or otherwise updates) that maintained `pricing.json` in the repo — a
+  follow-up project of its own, not part of the app itself.
+- **Use OpenRouter's own pricing as an approximate stand-in for other providers**, per the
+  user's idea: OpenRouter's per-model prices for e.g. OpenAI models track the vendor's own
+  pricing fairly closely, so they could seed/cross-check our `pricing.json` for providers that
+  don't expose pricing themselves — shown in the UI with a clear "approximate, order of
+  magnitude only" disclaimer rather than presented as exact.
+- **LiteLLM's `model_prices_and_context_window.json`**
+  (raw: `https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json`)
+  is a large (thousands of entries, effectively every provider/model) community-maintained
+  pricing+metadata file — checked its shape: keyed by model name, fields like
+  `input_cost_per_token`, `output_cost_per_token`, `litellm_provider`, `mode`,
+  `max_input_tokens`/`max_output_tokens`, capability flags (`supports_vision`, etc.), cache
+  pricing where applicable. Tempting as a data source, but the user flagged a real risk: even
+  though its license would allow using it, depending on an external project we don't control
+  means we're stuck if it goes unmaintained. Decision: don't build a hard runtime dependency on
+  it; at most, consult it as a reference/cross-check when hand-updating our own `pricing.json`
+  (manually or via the future update-bot).
