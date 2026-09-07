@@ -11,10 +11,10 @@ approved by the user.
 ## Current step
 
 Adding new providers to Step 8 **one at a time**; each gets committed + pushed individually.
-Mistral, OpenRouter, and Anthropic are done, committed, and (OpenRouter + Anthropic) fully
-verified working end to end with real keys. **Gemini is implemented and verified compiling
-while the user was away eating — waiting on their manual test with a real key before
-committing.** The generic OpenAI-compatible endpoint still has no obvious test target.
+Mistral, OpenRouter, Anthropic, and Gemini are all done, committed, and pushed — every one
+except Mistral has been fully verified end to end with a real key (Mistral is blocked on an
+account-side rate limit, not a code issue). Only the generic OpenAI-compatible endpoint is left
+for Step 8's provider list, but it has no obvious test target yet.
 
 ## Done so far
 
@@ -433,7 +433,9 @@ committing.** The generic OpenAI-compatible endpoint still has no obvious test t
 
 ## In progress / not yet done
 
-- Gemini implemented, verified, and manually tested successfully — **not yet committed**.
+- Nothing in progress right now. Gemini is committed and pushed (`9c32d2c`). Only the generic
+  OpenAI-compatible provider remains on the Step 8 list, plus pricing entries once model ids are
+  confirmed via testing.
 
 ## Known issues / incidents
 
