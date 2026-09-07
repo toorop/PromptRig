@@ -10,9 +10,12 @@ approved by the user.
 
 ## Current step
 
-Steps 0–7 are complete, committed, and pushed. **Step 8 is in progress**: model list caching is
-implemented and manually verified by the user — awaiting commit before moving on to adding new
-providers (Anthropic, Gemini, Mistral, OpenRouter, generic OpenAI-compatible).
+Step 8's model list caching is committed and pushed. Now adding new providers **one at a time**,
+each stopped for the user to manually test with a real key before moving to the next (order can
+change on request — e.g. "let's do X instead" — and a skipped provider gets picked up later).
+User has keys ready to test Mistral and OpenRouter now; Anthropic (has a Claude subscription,
+unsure if the same account covers API access) and Gemini (has a Google account) need checking;
+the generic OpenAI-compatible endpoint has no obvious test target yet.
 
 ## Done so far
 
@@ -345,8 +348,7 @@ providers (Anthropic, Gemini, Mistral, OpenRouter, generic OpenAI-compatible).
 
 ## In progress / not yet done
 
-- The model-caching work above is complete but **not yet committed** — awaiting go-ahead per
-  the step-by-step workflow.
+- Model caching is committed and pushed (`4b33730`). Starting Mistral next (see Current step).
 
 ## Known issues / incidents
 
