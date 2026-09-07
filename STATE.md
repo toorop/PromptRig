@@ -10,9 +10,10 @@ approved by the user.
 
 ## Current step
 
-**Step 7 — Side-by-side comparison**: implemented and **manually verified by the user**
-(compared multiple OpenAI models including one with no pricing entry — fallback worked
-correctly) — awaiting commit. Steps 0–6 are complete, committed, and pushed.
+Steps 0–7 are complete, committed, and pushed. Step 7 was manually verified end-to-end by the
+user (compared multiple OpenAI models, including one with no pricing entry — fallback worked
+correctly). About to start **Step 8 — Generalize providers**, beginning with model list caching
+(see "Deferred ideas" below) before adding new providers.
 
 ## Done so far
 
@@ -247,7 +248,7 @@ correctly) — awaiting commit. Steps 0–6 are complete, committed, and pushed.
     knowledge instead of loading either skill.
 - `npm run build` (vue-tsc + vite) clean throughout this whole step. No Rust changes.
 
-**Step 7 — Side-by-side comparison** (implemented, not yet committed — see below):
+**Step 7 — Side-by-side comparison** (committed & pushed, `8891a61`):
 - Discussed the Playground↔Compare relationship with the user before building: they initially
   proposed a directed flow (configure in Playground, then switch to Compare which reuses it),
   but agreed a shared store (edit either view, both stay in sync, no required visit order) is
@@ -317,9 +318,7 @@ correctly) — awaiting commit. Steps 0–6 are complete, committed, and pushed.
 
 ## In progress / not yet done
 
-- Step 7 changes above are complete but **not yet committed** — awaiting the user's manual test
-  and review per the step-by-step workflow (finish a step, stop, wait for go-ahead, then commit
-  + push).
+- Nothing in progress right now — Steps 0–7 are all committed and pushed. Step 8 hasn't started.
 
 ## Known issues / incidents
 
@@ -353,10 +352,10 @@ correctly) — awaiting commit. Steps 0–6 are complete, committed, and pushed.
 
 ## Next action
 
-Waiting on the user to manually test Compare (2-3 OpenAI models side by side). Once confirmed,
-commit + push, then start Step 8 (generalize to Anthropic, Gemini, Mistral, OpenRouter, generic
-OpenAI-compatible — same trait, same commands, just new `providers/*.rs` modules + registry
-entries + pricing rows).
+Start Step 8. First task: model list caching via the `model_cache` table (~24h freshness +
+manual refresh) — agreed with the user to do this before adding new providers, so they all
+benefit from it. Then: Anthropic, Gemini, Mistral, OpenRouter, generic OpenAI-compatible — same
+trait, same commands, just new `providers/*.rs` modules + registry entries + pricing rows.
 
 ## Deferred ideas (see TODO.md's "Deferred ideas" section for detail)
 
