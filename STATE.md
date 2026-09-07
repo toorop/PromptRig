@@ -389,7 +389,7 @@ endpoint still has no obvious test target.
 - `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (31 passed, 1 ignored) clean.
   Needed another full `tauri dev` restart (same file-watcher limitation as Mistral).
 
-**Anthropic provider** (implemented, not yet committed — see below):
+**Anthropic provider** (committed & pushed, `74c4549`):
 - `providers/anthropic.rs`: Messages API. Several real wire-format differences from every other
   provider so far, each independently verified against the official docs (a summarized fetch
   first claimed `Authorization: Bearer` for auth, which turned out wrong — cross-checked against
@@ -409,8 +409,8 @@ endpoint still has no obvious test target.
 
 ## In progress / not yet done
 
-- Anthropic is complete but **not yet committed**. User is about to step away (back after
-  eating) to continue with Google next.
+- Anthropic is committed and pushed. User is stepping away to eat; researching Google's API
+  naming/shape in the meantime (see below) so it's ready when they're back.
 
 ## Known issues / incidents
 
