@@ -446,9 +446,14 @@ polish, or something else) with the user.
 
 ## In progress / not yet done
 
-- Nothing in progress right now. All Step 8 provider work (Mistral, OpenRouter, Anthropic,
-  Gemini, plus the deferred-endpoint decision) is committed and pushed. Deciding next steps with
-  the user — Step 9 (UI polish) is the natural next stop per the original roadmap.
+- Nothing in progress right now. All Step 8 provider work is committed and pushed. The user
+  wants to pick up Step 9 (UI polish) tomorrow rather than tonight — session likely winding
+  down. Two new future ideas captured in TODO.md's "Deferred ideas" section (not implemented):
+  saved named prompt sets ("Tests" — system+user prompt + description, recallable later; ties
+  into the unused `prompts`/`test_cases` tables from Step 3, but the user's actual ask is
+  simpler than the spec's original Prompt/Test-Case split, worth re-checking before building),
+  and AI-assisted system prompt improvement (a concrete restatement of docs/start.md's already-
+  documented, explicitly-MVP-deferred "optimisation automatique" section).
 
 ## Known issues / incidents
 

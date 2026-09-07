@@ -193,3 +193,38 @@ Discussed 2026-09-07, explicitly not to be implemented until the user asks:
   means we're stuck if it goes unmaintained. Decision: don't build a hard runtime dependency on
   it; at most, consult it as a reference/cross-check when hand-updating our own `pricing.json`
   (manually or via the future update-bot).
+
+### Saved prompt sets ("Tests") — user idea, 2026-09-07
+
+Save a named (system prompt, user prompt) pair with a description/notes field, so it can be
+recalled later — **not** tied to a specific provider/model, just the prompt content itself.
+
+This is the concrete feature that would finally exercise the `prompts` and `test_cases` tables
+already sitting in the schema since Step 3 (created ahead of use, per docs/start.md's Prompt /
+Test Case sections), but note a real mismatch to resolve when this gets designed: the spec's
+original model is `Prompt` = system prompt (named, versionable) and `Test Case` = a user prompt
+that tests a Prompt (reusable across several Prompts) — two separate, relatable entities. What
+the user actually asked for here is simpler: **one saved unit** bundling both system prompt and
+user prompt together under one name + description. Don't just bolt this onto the existing two
+tables without checking which shape the user actually wants when this is picked up — it may mean
+adding a `description` column and treating a "saved test" as its own thing (perhaps a Prompt +
+Test Case pair saved together), rather than assuming the original split design still fits.
+
+### AI-assisted system prompt improvement — user idea, 2026-09-07
+
+Two versions of the same idea, from simpler to more ambitious:
+1. A button near the System Prompt editor that sends the current system prompt to a powerful
+   model for critique/improvement suggestions.
+2. A full loop: describe the desired behavior, a powerful "judge/optimizer" model generates a
+   system prompt, you run it against a Test Case, and based on the result the model iterates and
+   improves the prompt.
+
+This is exactly docs/start.md's "Évolution prévue : optimisation automatique" section — the
+spec already describes this future workflow in detail (including cost/latency/quality tradeoffs
+across models) and explicitly says not to build it in the MVP, only to keep the architecture
+open to it (Runs must be executable programmatically, not just from the interactive UI — already
+true: `commands::runs::run_generation` and `commands::experiments::run_experiment` are plain
+async functions under the Tauri command layer, callable from anywhere, not wired to any specific
+UI flow). The user re-raised it independently after using the tool for a while, which is a good
+signal it's a real want, not just a spec artifact — but per the spec's own instructions, still
+explicitly deferred past the MVP.
