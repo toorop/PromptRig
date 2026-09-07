@@ -4,22 +4,48 @@ use serde::{Deserialize, Serialize};
 use super::model::GenerationParams;
 use super::provider::ProviderId;
 
+/// (De)serializes an `i64` id as a string. Specta refuses to export `i64`/`u64` straight to
+/// TypeScript — JS numbers can't represent the full range without losing precision — so ids
+/// cross the Tauri IPC boundary as strings instead. Internally (SQLite, Rust comparisons) they
+/// stay plain `i64`.
+mod id_as_string {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S: Serializer>(value: &i64, serializer: S) -> Result<S::Ok, S::Error> {
+        value.to_string().serialize(serializer)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<i64, D::Error> {
+        String::deserialize(deserializer)?
+            .parse()
+            .map_err(serde::de::Error::custom)
+    }
+}
+
 /// Identifies a `Run` once it has been persisted.
 ///
 /// Wrapping the raw `i64` (SQLite's rowid) in a newtype stops us from accidentally passing a
 /// `RunId` where an `ExperimentId` (or any other bare integer) was expected — the compiler will
-/// reject it. Assigning the actual value is the storage layer's job (added in a later step).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct RunId(pub i64);
+/// reject it. Assigning the actual value is the storage layer's job.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
+pub struct RunId(
+    #[serde(with = "id_as_string")]
+    #[specta(type = String)]
+    pub i64,
+);
 
 /// Identifies an `Experiment` (a group of Runs — see docs/start.md). The full `Experiment`
 /// domain type is introduced when side-by-side comparison is implemented; `Run` only needs the
 /// id to record which experiment, if any, it belongs to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct ExperimentId(pub i64);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
+pub struct ExperimentId(
+    #[serde(with = "id_as_string")]
+    #[specta(type = String)]
+    pub i64,
+);
 
 /// Token counts reported by a provider for one generation call.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, specta::Type)]
 pub struct Usage {
     pub input_tokens: u32,
     pub output_tokens: u32,
@@ -30,14 +56,16 @@ pub struct Usage {
 /// This is deliberately separate from `Run`: `RunResult` is just "what came back from the API
 /// call", while `Run` is the full persisted record (request + result). Keeping them separate
 /// means a provider implementation never needs to know about `Experiment`s, ids, or storage.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 pub struct RunResult {
     pub text: String,
     /// `None` when the provider's response didn't include usage information.
     pub usage: Option<Usage>,
-    pub duration_ms: u64,
+    /// `u32` is plenty for a millisecond duration (up to ~49 days) and, unlike `u64`, is safe to
+    /// export straight to TypeScript (see `id_as_string` above for why that distinction matters).
+    pub duration_ms: u32,
     /// Time to first token. `None` until streaming is implemented (see docs/start.md).
-    pub ttft_ms: Option<u64>,
+    pub ttft_ms: Option<u32>,
 }
 
 /// A single execution of Provider + Model + System Prompt + User Prompt + parameters.
@@ -46,7 +74,7 @@ pub struct RunResult {
 /// with `experiment_id: None`, and a side-by-side comparison is simply several Runs sharing the
 /// same `experiment_id`. The side-by-side UI (a later step) introduces no separate "comparison"
 /// concept in the domain — it's just multiple Runs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 pub struct Run {
     pub id: RunId,
     pub experiment_id: Option<ExperimentId>,

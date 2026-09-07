@@ -8,7 +8,7 @@ use super::provider::ProviderId;
 /// l'affichage d'un paramètre qu'un fournisseur ou un modèle ne supporte pas." Pricing and
 /// context window are handled separately (see `pricing/`, added in a later step) so that the
 /// pricing table can be updated independently of this registry.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, specta::Type)]
 pub struct ModelCapabilities {
     pub supports_temperature: bool,
     pub supports_top_p: bool,
@@ -24,7 +24,7 @@ pub struct ModelCapabilities {
 /// Instances come from the Model Registry (a later step): either fetched dynamically from a
 /// provider's API and cached, or from a small bundled static list for providers/models that
 /// don't expose one.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct ModelInfo {
     pub provider: ProviderId,
     /// The exact identifier the provider's API expects, e.g. `"gpt-4o-mini"`.
@@ -41,7 +41,7 @@ pub struct ModelInfo {
 /// Every field is optional: the frontend only sets the ones a model's `ModelCapabilities`
 /// mark as supported, and a provider module only includes the fields its API accepts when
 /// building the actual HTTP request.
-#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize, specta::Type)]
 pub struct GenerationParams {
     pub temperature: Option<f64>,
     pub top_p: Option<f64>,

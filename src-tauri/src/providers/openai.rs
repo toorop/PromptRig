@@ -265,7 +265,7 @@ impl LlmProvider for OpenAiProvider {
             .json()
             .await
             .map_err(|e| AppError::Provider(format!("unexpected OpenAI response: {e}")))?;
-        let duration_ms = started.elapsed().as_millis() as u64;
+        let duration_ms = started.elapsed().as_millis() as u32;
 
         let text = body
             .choices

@@ -9,6 +9,7 @@ use super::db::Database;
 
 /// Fields needed to insert a new Run — everything `Run` has except `id`, which SQLite assigns
 /// on insert.
+#[derive(Clone)]
 pub struct NewRun {
     pub experiment_id: Option<ExperimentId>,
     pub provider: ProviderId,
@@ -27,7 +28,11 @@ fn json_err(e: serde_json::Error) -> AppError {
 }
 
 /// Inserts a Run and returns the id SQLite assigned it.
-pub fn insert_run(db: &Database, run: &NewRun) -> AppResult<RunId> {
+///
+/// Takes `run` by value (rather than `&NewRun`) because the actual insert happens inside
+/// `Database::with_connection`'s `spawn_blocking` task, which needs to own everything it
+/// touches — it may run on a different thread than the caller.
+pub async fn insert_run(db: &Database, run: NewRun) -> AppResult<RunId> {
     let params_json = serde_json::to_string(&run.params).map_err(json_err)?;
 
     let (result_text, usage_json, duration_ms, ttft_ms) = match &run.result {
@@ -44,7 +49,7 @@ pub fn insert_run(db: &Database, run: &NewRun) -> AppResult<RunId> {
         None => (None, None, None, None),
     };
 
-    db.with_connection(|conn| {
+    db.with_connection(move |conn| {
         conn.execute(
             "INSERT INTO runs (
                 experiment_id, provider, model_id, system_prompt, user_prompt, params_json,
@@ -71,6 +76,7 @@ pub fn insert_run(db: &Database, run: &NewRun) -> AppResult<RunId> {
 
         Ok(RunId(conn.last_insert_rowid()))
     })
+    .await
 }
 
 /// The raw column values for one `runs` row, before any parsing that can fail (JSON, the
@@ -130,8 +136,8 @@ fn row_to_run(row: RawRunRow) -> AppResult<Run> {
     let result = result_text.map(|text| RunResult {
         text,
         usage,
-        duration_ms: duration_ms.unwrap_or(0) as u64,
-        ttft_ms: ttft_ms.map(|v| v as u64),
+        duration_ms: duration_ms.unwrap_or(0) as u32,
+        ttft_ms: ttft_ms.map(|v| v as u32),
     });
 
     Ok(Run {
@@ -150,33 +156,35 @@ fn row_to_run(row: RawRunRow) -> AppResult<Run> {
 }
 
 /// Fetches a Run by id, or `Ok(None)` if it doesn't exist.
-pub fn get_run(db: &Database, id: RunId) -> AppResult<Option<Run>> {
-    let raw: Option<RawRunRow> = db.with_connection(|conn| {
-        conn.query_row(
-            &format!("SELECT {SELECT_RUN_COLUMNS} FROM runs WHERE id = ?1"),
-            params![id.0],
-            |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                    row.get(6)?,
-                    row.get(7)?,
-                    row.get(8)?,
-                    row.get(9)?,
-                    row.get(10)?,
-                    row.get(11)?,
-                    row.get(12)?,
-                    row.get(13)?,
-                ))
-            },
-        )
-        .optional()
-        .map_err(|e| AppError::Storage(e.to_string()))
-    })?;
+pub async fn get_run(db: &Database, id: RunId) -> AppResult<Option<Run>> {
+    let raw: Option<RawRunRow> = db
+        .with_connection(move |conn| {
+            conn.query_row(
+                &format!("SELECT {SELECT_RUN_COLUMNS} FROM runs WHERE id = ?1"),
+                params![id.0],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                        row.get(7)?,
+                        row.get(8)?,
+                        row.get(9)?,
+                        row.get(10)?,
+                        row.get(11)?,
+                        row.get(12)?,
+                        row.get(13)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(|e| AppError::Storage(e.to_string()))
+        })
+        .await?;
 
     raw.map(row_to_run).transpose()
 }
@@ -214,48 +222,52 @@ mod tests {
         }
     }
 
-    #[test]
-    fn inserted_run_round_trips_through_get_run() {
+    #[tokio::test]
+    async fn inserted_run_round_trips_through_get_run() {
         let db = Database::open_in_memory().unwrap();
         let new_run = sample_run();
+        // Cloned up front since `insert_run` consumes its input but the test also wants to
+        // compare against it afterward.
+        let expected = new_run.clone();
 
-        let id = insert_run(&db, &new_run).expect("insert must succeed");
+        let id = insert_run(&db, new_run).await.expect("insert must succeed");
         let fetched = get_run(&db, id)
+            .await
             .expect("get must succeed")
             .expect("run must exist");
 
         assert_eq!(fetched.id, id);
-        assert_eq!(fetched.experiment_id, new_run.experiment_id);
-        assert_eq!(fetched.provider, new_run.provider);
-        assert_eq!(fetched.model_id, new_run.model_id);
-        assert_eq!(fetched.system_prompt, new_run.system_prompt);
-        assert_eq!(fetched.user_prompt, new_run.user_prompt);
-        assert_eq!(fetched.params, new_run.params);
-        assert_eq!(fetched.started_at, new_run.started_at);
-        assert_eq!(fetched.result, new_run.result);
-        assert_eq!(fetched.error, new_run.error);
-        assert_eq!(fetched.estimated_cost_usd, new_run.estimated_cost_usd);
+        assert_eq!(fetched.experiment_id, expected.experiment_id);
+        assert_eq!(fetched.provider, expected.provider);
+        assert_eq!(fetched.model_id, expected.model_id);
+        assert_eq!(fetched.system_prompt, expected.system_prompt);
+        assert_eq!(fetched.user_prompt, expected.user_prompt);
+        assert_eq!(fetched.params, expected.params);
+        assert_eq!(fetched.started_at, expected.started_at);
+        assert_eq!(fetched.result, expected.result);
+        assert_eq!(fetched.error, expected.error);
+        assert_eq!(fetched.estimated_cost_usd, expected.estimated_cost_usd);
     }
 
-    #[test]
-    fn failed_run_has_no_result() {
+    #[tokio::test]
+    async fn failed_run_has_no_result() {
         let db = Database::open_in_memory().unwrap();
         let mut new_run = sample_run();
         new_run.result = None;
         new_run.error = Some("provider returned a 500".into());
         new_run.estimated_cost_usd = None;
 
-        let id = insert_run(&db, &new_run).unwrap();
-        let fetched = get_run(&db, id).unwrap().unwrap();
+        let id = insert_run(&db, new_run).await.unwrap();
+        let fetched = get_run(&db, id).await.unwrap().unwrap();
 
         assert!(fetched.result.is_none());
         assert_eq!(fetched.error.as_deref(), Some("provider returned a 500"));
     }
 
-    #[test]
-    fn get_run_returns_none_for_missing_id() {
+    #[tokio::test]
+    async fn get_run_returns_none_for_missing_id() {
         let db = Database::open_in_memory().unwrap();
 
-        assert_eq!(get_run(&db, RunId(999)).unwrap(), None);
+        assert_eq!(get_run(&db, RunId(999)).await.unwrap(), None);
     }
 }

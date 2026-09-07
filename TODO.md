@@ -69,8 +69,14 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 
 ## Step 5 — Tauri commands + generated bindings
 
-- [ ] `commands/providers.rs`, `commands/runs.rs`
-- [ ] Wire `specta` + `tauri-specta`, generate `src/lib/bindings.ts`
+- [x] `commands/providers.rs` (`list_providers`, `test_provider_connection`, `list_models`), `commands/runs.rs` (`run_generation`); shared `require_api_key` helper in `commands/mod.rs`
+- [x] Wired `specta` + `tauri-specta` (pinned `=2.0.0-rc.25` — the only version compatible with Tauri v2, never left RC despite 25 candidates; user explicitly chose to accept that risk over hand-written TS types), generate `src/lib/bindings.ts` in debug builds via `tauri_specta::Builder`
+- [x] Refactored `AppError` to a plain `#[serde(tag = "kind", content = "message")]` derive (dropped the hand-rolled `Serialize` impl) so `specta::Type` can derive automatically too — callers now pre-format the full message rather than relying on a generic Display prefix
+- [x] Fixed a real runtime panic caught by the `tauri dev` smoke test: specta refuses to export `i64`/`u64` to TypeScript (precision loss risk). `RunId`/`ExperimentId` now cross the IPC boundary as strings (`#[serde(with = "id_as_string")]` + `#[specta(type = String)]`, internally still `i64`); `RunResult.duration_ms`/`ttft_ms` switched from `u64` to `u32` (plenty for a millisecond duration, and `u32` is safe to export directly)
+- [x] `storage::Database::with_connection` now wraps its closure in `tauri::async_runtime::spawn_blocking` (per the original architecture decision) since it's finally being called from real async commands; `runs_repo::insert_run`/`get_run` are now `async fn`, `insert_run` takes `NewRun` by value instead of by reference
+- [x] **First real wiring**: `lib.rs`'s `setup()` now resolves the app data dir, opens the real `Database`, and `.manage()`s `Database`/`ProviderRegistry`/`PricingTable` — `storage`/`providers`/`pricing` are no longer inert
+- [x] Smoke-tested `npm run tauri dev`: caught and fixed the BigInt panic above; second run launched cleanly (user confirmed), `src/lib/bindings.ts` generated correctly (10.9 KB, all 7 commands + types present)
+- [x] `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (23 passed, 1 ignored) and `npm run build` (vue-tsc against the generated bindings) all clean
 
 ## Step 6 — Playground vertical slice
 

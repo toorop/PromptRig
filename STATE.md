@@ -10,10 +10,9 @@ approved by the user.
 
 ## Current step
 
-Steps 0–4 are complete, committed, and pushed. About to start **Step 5 — Tauri commands +
-generated bindings**: `commands/providers.rs`, `commands/runs.rs`, wiring `specta` +
-`tauri-specta` to generate `src/lib/bindings.ts`, and wiring `storage`/`providers`/`pricing`
-into the actual Tauri app for the first time.
+**Step 5 — Tauri commands + generated bindings**: implemented, verified (tests/clippy/fmt all
+clean, real `tauri dev` smoke test passed after fixing a real panic — see below), awaiting user
+review before commit. Steps 0–4 are complete, committed, and pushed.
 
 ## Done so far
 
@@ -148,9 +147,57 @@ into the actual Tauri app for the first time.
   real key) — offered to the user to test manually if they want, same pattern as the keyring
   `#[ignore]`d integration test in Step 2.
 
+**Step 5 — Tauri commands + generated bindings** (implemented, not yet committed — see below):
+- `commands/providers.rs`: `list_providers` (sync, returns `ProviderStatus` — provider id,
+  display name, `implemented` from the registry, `configured` from `has_api_key`),
+  `test_provider_connection` and `list_models` (both async, look up the key via the new shared
+  `require_api_key` helper in `commands/mod.rs` and delegate to the `ProviderRegistry`).
+- `commands/runs.rs`: `run_generation` — the Playground's "Run" button. Looks up the key, calls
+  `provider.generate()`, computes cost via `PricingTable::estimate_cost`, persists via
+  `runs_repo::insert_run` **regardless of success or failure** (a failed call is still a Run
+  worth keeping, per docs/start.md), returns the freshly-fetched persisted `Run`.
+- **Real integration for the first time**: `lib.rs`'s `setup()` resolves the Tauri app data dir,
+  opens the real SQLite `Database` there, and `.manage()`s `Database`/`ProviderRegistry`/
+  `PricingTable`. `storage`, `providers`, and `pricing` stop being inert library code exercised
+  only by their own tests.
+- **tauri-specta wired in**, pinned to the exact version discussed with the user
+  (`=2.0.0-rc.25` — the only Tauri-v2-compatible release, still RC after 25 candidates; user
+  chose this over hand-written TS types). `tauri_specta::Builder` collects all 7 commands;
+  `src/lib/bindings.ts` is regenerated on every debug build.
+- **Refactored `AppError`** to enable specta support: dropped the hand-rolled `Serialize` impl
+  from Step 1 in favor of a plain `#[serde(tag = "kind", content = "message")]` derive (which
+  `specta::Type` can also read automatically). Trade-off: call sites now pre-format the full
+  message themselves rather than relying on a generic per-variant Display prefix — audited, and
+  every existing call site already did this anyway, so it was a no-op in practice.
+- **Caught and fixed a real runtime panic** via the `tauri dev` smoke test (not something
+  `cargo check`/`clippy` could catch): specta refuses to export `i64`/`u64` to TypeScript
+  (JS number precision loss). Fixed by making `RunId`/`ExperimentId` cross the IPC boundary as
+  strings (`#[serde(with = "id_as_string")]` + `#[specta(type = String)]`; still plain `i64`
+  internally/in SQLite) and switching `RunResult.duration_ms`/`ttft_ms` from `u64` to `u32`
+  (a millisecond duration never remotely approaches `u32`'s ~49-day range, and `u32` exports
+  safely).
+- **Honored a previously-deferred architecture decision**: `storage::Database::with_connection`
+  now wraps its closure in `tauri::async_runtime::spawn_blocking`, since it's finally being
+  called from real async Tauri commands (this was always the plan — see the plan file's
+  decision #1 — just not needed until now). `runs_repo::insert_run`/`get_run` became `async fn`;
+  `insert_run` now takes `NewRun` by value (the closure passed to `spawn_blocking` must be
+  `'static`, so it needs to own its data rather than borrow it).
+- Smoke-tested `npm run tauri dev` twice: first run hit the BigInt panic above before the app
+  window even opened; after the fix, the user confirmed the app launched cleanly, and
+  `src/lib/bindings.ts` was generated correctly (10.9 KB, all 7 commands + types, including the
+  `Run` return type coming through as `Run_Serialize` — specta's conservative handling of the
+  custom `id_as_string` serde `with` module splits some types into `_Serialize`/`_Deserialize`
+  variants even though ours are symmetric; cosmetic verbosity in the generated file, not a
+  correctness issue — worth revisiting only if it becomes annoying to use from the frontend).
+- New dev dependency: `tokio` (`macros`, `rt-multi-thread`) for `#[tokio::test]` in the now-async
+  storage tests.
+- `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (23 passed, 1 ignored) and
+  `npm run build` (vue-tsc typechecks the generated bindings) all clean.
+
 ## In progress / not yet done
 
-- Nothing in progress right now — Steps 0–4 are all committed and pushed. Step 5 hasn't started.
+- Step 5 changes above are complete but **not yet committed** — awaiting user review per the
+  step-by-step workflow (finish a step, stop, wait for go-ahead, then commit + push).
 
 ## Known issues / incidents
 
@@ -184,8 +231,9 @@ into the actual Tauri app for the first time.
 
 ## Next action
 
-Start Step 5 (Tauri commands + `tauri-specta` generated TS bindings, wiring
-`storage`/`providers`/`pricing` into the app for real).
+Waiting on user review of Step 5 (commands, real Tauri wiring, generated bindings). Once
+confirmed, commit + push, then start Step 6 (Playground vertical slice: SettingsView provider
+card + PlaygroundView, the first screens actually wired to these commands).
 
 ## Deferred ideas (see TODO.md's "Deferred ideas" section for detail)
 

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// `ProviderRegistry` can exhaustively match over every known provider. Adding a new provider
 /// means adding a variant here plus a new module under `providers/` — nothing else needs to
 /// change.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 pub enum ProviderId {
     #[serde(rename = "openai")]
     OpenAi,

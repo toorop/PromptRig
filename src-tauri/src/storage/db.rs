@@ -55,17 +55,35 @@ impl Database {
         })
     }
 
-    /// Runs `f` with exclusive access to the connection.
+    /// Runs `f` with exclusive access to the connection, on a blocking-friendly thread.
     ///
-    /// Repositories go through this instead of locking the mutex themselves so that a poisoned
-    /// lock (left behind by a prior panic while holding it) turns into a normal `AppError` for
-    /// the caller instead of panicking every subsequent database access.
-    pub fn with_connection<T>(&self, f: impl FnOnce(&Connection) -> AppResult<T>) -> AppResult<T> {
-        let conn = self
-            .conn
-            .lock()
-            .map_err(|_| AppError::Storage("database connection lock was poisoned".into()))?;
-        f(&conn)
+    /// `rusqlite` is synchronous, and Tauri commands are async — calling blocking SQLite I/O
+    /// directly on an async task would stall whatever else that task's thread is doing. Routing
+    /// every database access through `spawn_blocking` here, in one place, means repositories
+    /// (`runs_repo` etc.) can stay plain, easy-to-read synchronous functions internally while
+    /// still being safe to call from async command handlers.
+    ///
+    /// `f` must be `'static` (own everything it needs, no borrows from the caller) because it
+    /// may run on a different thread than the one that called `with_connection`.
+    pub async fn with_connection<T, F>(&self, f: F) -> AppResult<T>
+    where
+        F: FnOnce(&Connection) -> AppResult<T> + Send + 'static,
+        T: Send + 'static,
+    {
+        let conn = Arc::clone(&self.conn);
+
+        let join_result = tauri::async_runtime::spawn_blocking(move || {
+            let conn = conn
+                .lock()
+                .map_err(|_| AppError::Storage("database connection lock was poisoned".into()))?;
+            f(&conn)
+        })
+        .await;
+
+        match join_result {
+            Ok(result) => result,
+            Err(e) => Err(AppError::Storage(format!("database task panicked: {e}"))),
+        }
     }
 }
 
@@ -73,8 +91,8 @@ impl Database {
 mod tests {
     use super::*;
 
-    #[test]
-    fn opens_in_memory_and_applies_migrations() {
+    #[tokio::test]
+    async fn opens_in_memory_and_applies_migrations() {
         let db = Database::open_in_memory().expect("in-memory database must open");
 
         // If migrations didn't run, this query would fail with "no such table: runs".
@@ -87,6 +105,7 @@ mod tests {
                 )
                 .map_err(|e| AppError::Storage(e.to_string()))
             })
+            .await
             .expect("query must succeed");
 
         assert_eq!(table_exists, 1);
