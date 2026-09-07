@@ -43,8 +43,10 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 
 ## Step 2 — Secrets
 
-- [ ] `secrets/` module wrapping the `keyring` crate
-- [ ] Commands: `save_api_key`, `delete_api_key`, `has_api_key` (never return the raw key to the frontend)
+- [x] `secrets/` module wrapping the `keyring` crate (default `v1` feature — already selects the right per-OS backend, no extra feature flags needed)
+- [x] Commands: `save_api_key`, `delete_api_key`, `has_api_key` (never return the raw key to the frontend; `get_api_key` exists for internal use by providers later but is not a registered command)
+- [x] Unit tests for the error-mapping logic (NoEntry handling), extracted into pure functions so they don't need a real keyring backend (4 tests)
+- [x] Manual, `#[ignore]`d integration test exercising the real OS keyring — run once with `cargo test -- --ignored`, confirmed working against Secret Service on this Linux dev machine
 
 ## Step 3 — Storage
 

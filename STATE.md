@@ -10,8 +10,9 @@ approved by the user.
 
 ## Current step
 
-**Step 1 — Rust domain & errors**: implemented, verified (tests/clippy/fmt all clean), awaiting
-user review before commit. Step 0 (Bootstrap) is complete and pushed.
+**Step 2 — Secrets**: implemented, verified (tests/clippy/fmt all clean, real-keyring
+round-trip confirmed on this machine), awaiting user review before commit. Steps 0 and 1 are
+complete and pushed.
 
 ## Done so far
 
@@ -57,9 +58,28 @@ user review before commit. Step 0 (Bootstrap) is complete and pushed.
   consistency, `GenerationParams` defaults. `cargo check`, `cargo clippy --all-targets`, and
   `cargo fmt --check` all clean.
 
+**Step 2 — Secrets** (implemented, not yet committed — see below):
+- `src-tauri/src/secrets/mod.rs` — wraps the `keyring` crate. `SERVICE = "promptrig"`, account
+  name = `ProviderId::as_str()`. `save_api_key`, `delete_api_key` (treats "already absent" as
+  success), `get_api_key` (internal-only, returns `Option<String>`), `has_api_key` (built on
+  top of `get_api_key`). The `NoEntry`-handling logic is extracted into small pure functions
+  (`map_delete_result`, `map_get_result`) specifically so it's unit-testable without a real
+  keyring backend (CI runners typically don't have one available/unlocked).
+- `src-tauri/src/commands/` introduced (new top-level module) with `commands/secrets.rs`
+  exposing `save_api_key`, `delete_api_key`, `has_api_key` as Tauri commands — thin wrappers
+  with no logic of their own. Registered in `lib.rs`'s `invoke_handler`.
+- New dependency: `keyring` v4.2.0, default features only. Its default `v1` feature already
+  target-conditionally pulls in the right per-OS backend (Secret Service on Linux, Keychain on
+  macOS, Credential Manager on Windows) — confirmed by reading the crate's own Cargo.toml, no
+  extra feature flags or platform-specific Cargo.toml stanzas needed on our side.
+- 4 unit tests (pure error-mapping logic) + 1 `#[ignore]`d integration test that exercises the
+  real OS keyring end to end (save/has/get/delete, non-destructively restoring any pre-existing
+  key). Ran it manually once with `cargo test -- --ignored`: confirmed working against Secret
+  Service on this Linux dev machine. `cargo check`/`clippy --all-targets`/`fmt --check` clean.
+
 ## In progress / not yet done
 
-- Step 1 changes above are complete but **not yet committed** — awaiting user review per the
+- Step 2 changes above are complete but **not yet committed** — awaiting user review per the
   step-by-step workflow (finish a step, stop, wait for go-ahead, then commit + push).
 
 ## Known issues / incidents
@@ -94,5 +114,6 @@ user review before commit. Step 0 (Bootstrap) is complete and pushed.
 
 ## Next action
 
-Waiting on user review of Step 1 (domain module). Once confirmed, commit + push, then start
-Step 2 (Secrets: `secrets/` module wrapping the `keyring` crate).
+Waiting on user review of Step 2 (secrets module + commands). Once confirmed, commit + push,
+then start Step 3 (Storage: `storage/db.rs` with `rusqlite` + `rusqlite_migration`, initial
+schema, basic repositories).
