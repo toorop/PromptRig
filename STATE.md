@@ -10,8 +10,10 @@ approved by the user.
 
 ## Current step
 
-**Step 3 — Storage**: implemented, verified (tests/clippy/fmt all clean), awaiting user review
-before commit. Steps 0, 1, and 2 are complete and pushed.
+Steps 0–3 are complete, committed, and pushed. About to start **Step 4 — First provider
+(OpenAI) + registry**: `LlmProvider` trait (`async-trait`) + `ProviderRegistry`, the OpenAI
+implementation (`test_connection`, `list_models`, `generate`), and `pricing/` with a seeded
+`pricing.json`.
 
 ## Done so far
 
@@ -35,7 +37,7 @@ before commit. Steps 0, 1, and 2 are complete and pushed.
 - Untracked `.claude/scheduled_tasks.lock` (assistant session state, accidentally committed via
   the editor) and added it to `.gitignore` alongside `settings.local.json`.
 
-**Step 1 — Rust domain & errors** (implemented, not yet committed — see below):
+**Step 1 — Rust domain & errors** (committed & pushed, `45dff8f`):
 - `src-tauri/src/domain/error.rs` — `AppError` (thiserror for `Display`/internal `?`
   conversions later) with a hand-rolled `Serialize` impl (`{ kind, message }`) so Tauri commands
   can return it directly and the frontend gets the polished Display message. `AppResult<T>` alias.
@@ -57,7 +59,7 @@ before commit. Steps 0, 1, and 2 are complete and pushed.
   consistency, `GenerationParams` defaults. `cargo check`, `cargo clippy --all-targets`, and
   `cargo fmt --check` all clean.
 
-**Step 2 — Secrets** (implemented, not yet committed — see below):
+**Step 2 — Secrets** (committed & pushed, `8391eda`):
 - `src-tauri/src/secrets/mod.rs` — wraps the `keyring` crate. `SERVICE = "promptrig"`, account
   name = `ProviderId::as_str()`. `save_api_key`, `delete_api_key` (treats "already absent" as
   success), `get_api_key` (internal-only, returns `Option<String>`), `has_api_key` (built on
@@ -76,7 +78,7 @@ before commit. Steps 0, 1, and 2 are complete and pushed.
   key). Ran it manually once with `cargo test -- --ignored`: confirmed working against Secret
   Service on this Linux dev machine. `cargo check`/`clippy --all-targets`/`fmt --check` clean.
 
-**Step 3 — Storage** (implemented, not yet committed — see below):
+**Step 3 — Storage** (committed & pushed, `4baaea7`):
 - `src-tauri/src/storage/migrations/0001_initial.sql` — `prompts`, `test_cases`, `experiments`,
   `runs`, `model_cache` tables. Only `runs` has Rust repository code so far; the rest exist now
   so the schema doesn't need a disruptive later migration, and get real repos when the features
@@ -104,8 +106,7 @@ before commit. Steps 0, 1, and 2 are complete and pushed.
 
 ## In progress / not yet done
 
-- Step 3 changes above are complete but **not yet committed** — awaiting user review per the
-  step-by-step workflow (finish a step, stop, wait for go-ahead, then commit + push).
+- Nothing in progress right now — Steps 0–3 are all committed and pushed. Step 4 hasn't started.
 
 ## Known issues / incidents
 
@@ -139,6 +140,5 @@ before commit. Steps 0, 1, and 2 are complete and pushed.
 
 ## Next action
 
-Waiting on user review of Step 3 (storage module). Once confirmed, commit + push, then start
-Step 4 (first provider — OpenAI — plus the `LlmProvider` trait, `ProviderRegistry`, and
+Start Step 4 (first provider — OpenAI — plus the `LlmProvider` trait, `ProviderRegistry`, and
 `pricing/` with a seeded `pricing.json`).
