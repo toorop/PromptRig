@@ -5,6 +5,7 @@
 
 pub mod mistral;
 pub mod openai;
+pub mod openrouter;
 
 use std::collections::HashMap;
 
@@ -53,6 +54,10 @@ impl ProviderRegistry {
         providers.insert(
             ProviderId::Mistral,
             Box::new(mistral::MistralProvider::new()),
+        );
+        providers.insert(
+            ProviderId::OpenRouter,
+            Box::new(openrouter::OpenRouterProvider::new()),
         );
         Self { providers }
     }

@@ -119,9 +119,11 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
   - Registered in `ProviderRegistry`. No pricing entries yet — didn't want to guess exact API model-id strings for `pricing.json` without confirming them against a real `list_models` response first.
   - **Manually tested by the user with a real key**: connects and authenticates correctly (models listed fine); a real generation call currently returns `HTTP 429 rate_limited` (Mistral error code `1300`) even after adding account credit — this is a request-rate limit, not a billing/quota issue, so adding funds wouldn't be expected to fix it; likely needs an explicit plan/workspace activation step on Mistral's side. Left as a known account-side blocker, not a code bug (the structured JSON error response proves auth + request formatting work correctly) — to revisit later.
   - Two small UI fixes landed alongside this (found via the same testing session): `ResultPanel` copying a *failed* Run's error text didn't work (the Copy button only showed for a successful `run.result`) — now shows for any displayed text (top-level error, Run error, or success). Added `CopyButton.vue` (reusable) next to the System/User prompt labels in both Playground and Compare, per the user's request.
+- [x] **OpenRouter** (`providers/openrouter.rs`) — the friendliest provider yet: `/v1/models` reports `context_length` and a `supported_parameters` array per model directly, so capabilities come straight from the API (no heuristics like OpenAI, more precise than even Mistral). OpenRouter itself translates to whatever wire format the underlying model needs, so no reasoning-model quirk to handle on our side either. Registered in `ProviderRegistry`. 3 unit tests (capabilities-from-supported-params, both directions, plus request shape).
+  - Pricing: OpenRouter's `/v1/models` also returns real per-model pricing (unlike every other provider) — noted as the deferred "use OpenRouter's own pricing" idea from Step 4, still not implemented; costs show "—" like any unpriced model for now.
+  - **Manually tested by the user with a real key, fully working**: configured the key, models loaded, ran a real prompt successfully end to end.
 - [ ] Anthropic
 - [ ] Google Gemini
-- [ ] OpenRouter
 - [ ] Generic OpenAI-compatible endpoint
 - [ ] Pricing entries for each provider once real model ids are confirmed via live testing
 

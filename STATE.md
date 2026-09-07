@@ -12,10 +12,9 @@ approved by the user.
 
 Adding new providers to Step 8 **one at a time**; each gets committed + pushed individually
 (the user wants frequent commits, especially since they may need to stop mid-session). Mistral
-is done and committed. Moving to **OpenRouter** next. Anthropic (has a Claude subscription,
-unsure if the same account covers API access) and Gemini (has a Google account) need checking;
-the generic OpenAI-compatible endpoint has no obvious test target yet. Order can change on
-request; a skipped provider gets picked up later.
+and OpenRouter are done and committed (OpenRouter fully verified working end to end). Moving to
+**Anthropic** next — user found their API key. Gemini (has a Google account) still needs
+checking; the generic OpenAI-compatible endpoint has no obvious test target yet.
 
 ## Done so far
 
@@ -374,11 +373,26 @@ request; a skipped provider gets picked up later.
   Verified live in `tauri dev` (a full restart was needed again — the file watcher didn't
   auto-pick-up the new `providers/mistral.rs` file on its own).
 
+**OpenRouter provider** (implemented, not yet committed — see below):
+- `providers/openrouter.rs`: an aggregator behind one OpenAI-compatible Chat Completions API.
+  `/v1/models` reports `context_length` and a `supported_parameters` array per model directly —
+  the most precise capability data of any provider so far, no heuristics needed. OpenRouter's
+  own gateway translates to whatever wire format the underlying model actually needs, so there's
+  no OpenAI-style reasoning-model quirk to replicate here. Registered in `ProviderRegistry`.
+  3 unit tests.
+- Confirmed (real fetch of `/v1/models`, no auth needed for the catalog itself) that pricing is
+  per-token USD, encoded as JSON strings (e.g. `"0.00001"`), not numbers — noted for whenever
+  the deferred "use OpenRouter's own pricing" idea gets built; not implemented now.
+- **Manually tested by the user with a real key — fully working end to end**: configured the
+  key, model list loaded, ran a real prompt successfully.
+- `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (31 passed, 1 ignored) clean.
+  Needed another full `tauri dev` restart (same file-watcher limitation as Mistral).
+
 ## In progress / not yet done
 
-- Mistral is committed and pushed. Moving to OpenRouter next. User flagged they may need to
-  stop in ~30 minutes with little notice — commit+push after every provider, don't batch up
-  multiple providers before committing.
+- OpenRouter is complete but **not yet committed**. Moving to Anthropic next — user found their
+  API key. Commit+push after every provider individually (user's explicit preference, especially
+  given they may need to stop with little notice).
 
 ## Known issues / incidents
 
