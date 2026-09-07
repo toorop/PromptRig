@@ -80,10 +80,16 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 
 ## Step 6 — Playground vertical slice
 
-- [ ] `SettingsView`: OpenAI provider card (API key, test connection, status)
-- [ ] `PlaygroundView`: provider/model picker, system/user prompt editors, basic params, Run button, result panel (text, latency, usage, cost)
-- [ ] Persist each Run to SQLite
-- [ ] **Manual test**: configure an OpenAI key, run a prompt, see the response + metrics
+- [x] `stores/providers.ts` (Pinia): shared `ProviderStatus[]` list, used by both Settings and Playground
+- [x] `SettingsView` + `components/settings/ProviderCard.vue`: API key input/save/remove, test connection, configured/not-configured badge — built generically over `list_providers` so Step 8's new providers need zero UI changes, just show up as extra cards
+- [x] `PlaygroundView` + `components/playground/ResultPanel.vue`: provider/model picker (models fetched live via `list_models` when provider changes), system/user prompt editors, temperature/top_p/max_tokens inputs (only shown per `ModelCapabilities`, pre-filled with sensible defaults — 0.7 / 1 / 1024 — each with a short visible hint, not a hover tooltip — see below), Run button, result panel (text, latency, tokens in/out, estimated cost, copy button)
+- [x] Persist each Run to SQLite (already wired via `run_generation` in Step 5)
+- [x] **Manual test, done by the user with a real OpenAI key**: configured `gpt-4o-mini`, ran a "clean up this speech-to-text transcript" system prompt against a messy sample user prompt — got back a correctly cleaned response. Confirms the full chain (key storage → model listing → generation → cost estimate → persistence) works end to end.
+- Bug found and fixed along the way: the provider `<Select>` doesn't open when its item list is empty (i.e. no provider configured yet) — not a real bug, just a UX sequencing gap; worth a clearer empty-state hint later (Step 9) so it's not mistaken for broken UI
+- Fixed a real UX/safety issue from user testing: the model picker defaulted to `models[0]` of an alphabetically-sorted live list, which could silently land on an expensive flagship model. Now remembers the last provider+model actually used (`localStorage`, per-device) and defaults to that; if nothing's remembered, nothing is pre-selected — an explicit choice beats a guessed one.
+- Replaced native `title` tooltips on the param labels (unreliable under WebKitGTK) with always-visible one-line hint text under each input.
+- Applied a Nord-inspired color pass (`src/assets/main.css`) to both the light and dark theme variable blocks — first real UI polish pass, ahead of Step 9. User's take: better than plain shadcn neutral, but ended up with *less* contrast than hoped for; explicitly deferred fixing that further to Step 9 rather than iterating more now.
+- `npm run build` (vue-tsc + vite) clean throughout
 
 ## Step 7 — Side-by-side comparison
 
@@ -103,10 +109,11 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 
 ## Step 9 — UI polish
 
-- [ ] Light/dark theme toggle
+- [ ] Light/dark theme toggle (the `.dark` CSS variables already exist — Nord-themed, see Step 6 — just needs the toggle UI and persistence)
+- [ ] Revisit contrast: a first Nord-inspired pass landed in Step 6 (light-mode background now `nord5` instead of white, cards `nord6`), but the user found the result had *less* contrast than intended, not more — acceptable for now, but worth a proper look here rather than more ad hoc tweaking
 - [ ] Resizable panels
 - [ ] Advanced params drawer
-- [ ] Easy result copy
+- [ ] Easy result copy (basic copy button already added to `ResultPanel` in Step 6 — revisit only if it needs more than that)
 
 ## Step 10 — CI/CD
 

@@ -10,10 +10,9 @@ approved by the user.
 
 ## Current step
 
-Steps 0–5 are complete, committed, and pushed. About to start **Step 6 — Playground vertical
-slice**: SettingsView (OpenAI provider card) + PlaygroundView (provider/model picker, prompt
-editors, params, Run button, result panel), the first screens actually wired to the commands
-from Step 5.
+**Step 6 — Playground vertical slice**: implemented and **manually verified end-to-end by the
+user with a real OpenAI key** (see below) — awaiting user review before commit. Steps 0–5 are
+complete, committed, and pushed.
 
 ## Done so far
 
@@ -195,11 +194,63 @@ from Step 5.
 - `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (23 passed, 1 ignored) and
   `npm run build` (vue-tsc typechecks the generated bindings) all clean.
 
+**Step 6 — Playground vertical slice** (implemented, not yet committed — see below):
+- `src/stores/providers.ts` — Pinia store holding `ProviderStatus[]`, shared by Settings (which
+  writes) and Playground (which only reads), so Playground reflects a newly-configured key
+  without needing to know Settings exists.
+- `src/components/settings/ProviderCard.vue` + `SettingsView.vue` — API key save/remove, test
+  connection, configured/not-configured badge. Built generically over `list_providers`, so
+  Step 8's new providers require zero UI changes — they just appear as additional cards.
+- `src/components/playground/ResultPanel.vue` + `PlaygroundView.vue` — provider/model picker
+  (models fetched live via `list_models` when the provider selection changes), system/user
+  prompt editors, temperature/top_p/max_tokens inputs (shown only when `ModelCapabilities` says
+  the model supports them, pre-filled with sensible defaults — 0.7 / 1 / 1024 — each with a
+  hover tooltip explaining what it does), Run button, and the result panel (text, latency,
+  token usage, estimated cost, copy-to-clipboard button).
+- **Manual end-to-end test, done by the user with their own OpenAI key**: saved a key in
+  Settings, selected `gpt-4o-mini` in Playground, ran a "clean up this speech-to-text
+  transcript" system prompt against a deliberately messy sample user prompt — got back a
+  correctly cleaned, reformulated response. Confirms the whole chain works: key storage → live
+  model listing → generation → cost estimate → SQLite persistence.
+- **Non-bug found during testing**: the provider `<Select>` appeared completely unresponsive to
+  clicks. Root cause: no API key was configured yet, so its item list was empty — Reka UI's
+  Select won't open with zero items. Not a code defect, but a UX sequencing trap (nothing told
+  the user to configure a provider first) — the empty-state hint text already exists
+  ("No provider is configured yet. Go to Settings…") but is easy to miss; worth making more
+  prominent in Step 9 polish.
+- Verified directly against the real SQLite file (`~/.local/share/com.promptrig.app/promptrig.sqlite`)
+  that `system_prompt`/`user_prompt` are persisted exactly as submitted — used this to diagnose
+  the user's first test (where both fields held identical text, so the model correctly asked
+  for the actual content instead of "ignoring" the system prompt).
+- **Follow-up fixes from live user testing, same step:**
+  - Model picker no longer defaults to `models[0]` of the alphabetically-sorted live list (a
+    real safety issue — could silently land on an expensive flagship model). Now remembers the
+    last provider+model actually used, per device, via `localStorage`
+    (`promptrig.playground.lastSelection`); if nothing's remembered yet, nothing is
+    pre-selected rather than guessing.
+  - Native `title`-attribute tooltips on the param inputs don't render reliably under
+    WebKitGTK — replaced with always-visible one-line hint text under each input instead.
+  - First visual polish pass (ahead of the dedicated Step 9): nicer tab-style top nav
+    (`App.vue`), toolbar/prompt areas grouped into `Card`s, native number-input spinners
+    hidden, and — per the user's request — a Nord-inspired color palette
+    (nordtheme.com: Polar Night/Snow Storm for background+text, Frost blue for the primary
+    accent) applied to both the light and dark `main.css` variable blocks, so the dark theme
+    (added in Step 0, unused until a toggle exists) is already Nord-consistent whenever Step 9
+    wires up the toggle. User's verdict: nicer than plain neutral shadcn, but ended up with
+    *less* contrast than they wanted — explicitly deferred fixing that further to Step 9 rather
+    than iterating more now.
+  - User pushed back on the framing that the `artifact-design`/`design` skills don't apply
+    here ("it's still Vue/HTML/CSS rendered somewhere") — fair point technically; the real
+    reason they weren't used is those skills are wired to Artifact-tool-specific mechanics
+    (CSP, host-driven theming, etc.) that don't exist in a Tauri app, not that the underlying
+    design fundamentals don't transfer. Handled this styling pass with direct CSS/Tailwind
+    knowledge instead of loading either skill.
+- `npm run build` (vue-tsc + vite) clean throughout this whole step. No Rust changes.
+
 ## In progress / not yet done
 
-- Nothing in progress right now — Steps 0–5 are all committed and pushed. Step 6 hasn't started.
-  User stepped away (~30 min, back shortly) right after confirming the Step 5 commit/push —
-  paused here, not starting Step 6 without them.
+- Step 6 changes above are complete but **not yet committed** — awaiting user review per the
+  step-by-step workflow (finish a step, stop, wait for go-ahead, then commit + push).
 
 ## Known issues / incidents
 
@@ -233,7 +284,9 @@ from Step 5.
 
 ## Next action
 
-User is away briefly; when they're back, start Step 6 (Playground vertical slice).
+Waiting on user review of Step 6 (Playground vertical slice, manually verified working). Once
+confirmed, commit + push, then start Step 7 (side-by-side comparison: extend `experiments_repo`,
+`run_experiment` command, `CompareView`).
 
 ## Deferred ideas (see TODO.md's "Deferred ideas" section for detail)
 

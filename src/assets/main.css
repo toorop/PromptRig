@@ -45,73 +45,77 @@
     --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* Nord (https://www.nordtheme.com) — Polar Night (nord0-3, dark) / Snow Storm (nord4-6, light)
+   for backgrounds & text, Frost (nord7-10) for the primary accent, Aurora (nord11-15) for
+   semantic/chart colors. Light mode uses Snow Storm for the page and Polar Night for text; dark
+   mode (below) is the reverse — this is the palette Nord was actually designed around. */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --background: #e5e9f0; /* nord5 */
+    --foreground: #2e3440; /* nord0 */
+    --card: #eceff4; /* nord6 — a touch lighter than the page, so cards read as raised */
+    --card-foreground: #2e3440;
+    --popover: #eceff4;
+    --popover-foreground: #2e3440;
+    --primary: #5e81ac; /* nord10 */
+    --primary-foreground: #eceff4;
+    --secondary: #d8dee9; /* nord4 */
+    --secondary-foreground: #3b4252; /* nord1 */
+    --muted: #d8dee9;
+    --muted-foreground: #4c566a; /* nord3 */
+    --accent: #d8dee9;
+    --accent-foreground: #2e3440;
+    --destructive: #bf616a; /* nord11 */
+    --border: #d8dee9;
+    --input: #d8dee9;
+    --ring: #81a1c1; /* nord9 */
+    --chart-1: #5e81ac; /* nord10 */
+    --chart-2: #a3be8c; /* nord14 */
+    --chart-3: #ebcb8b; /* nord13 */
+    --chart-4: #d08770; /* nord12 */
+    --chart-5: #b48ead; /* nord15 */
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar: #eceff4;
+    --sidebar-foreground: #2e3440;
+    --sidebar-primary: #5e81ac;
+    --sidebar-primary-foreground: #eceff4;
+    --sidebar-accent: #d8dee9;
+    --sidebar-accent-foreground: #2e3440;
+    --sidebar-border: #d8dee9;
+    --sidebar-ring: #81a1c1;
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --background: #2e3440; /* nord0 */
+    --foreground: #eceff4; /* nord6 */
+    --card: #3b4252; /* nord1 — a touch lighter than the page, so cards read as raised */
+    --card-foreground: #eceff4;
+    --popover: #3b4252;
+    --popover-foreground: #eceff4;
+    --primary: #88c0d0; /* nord8 */
+    --primary-foreground: #2e3440;
+    --secondary: #434c5e; /* nord2 */
+    --secondary-foreground: #eceff4;
+    --muted: #434c5e;
+    --muted-foreground: #d8dee9; /* nord4 */
+    --accent: #434c5e;
+    --accent-foreground: #eceff4;
+    --destructive: #bf616a; /* nord11 */
+    --border: #4c566a; /* nord3 */
+    --input: #4c566a;
+    --ring: #81a1c1; /* nord9 */
+    --chart-1: #88c0d0; /* nord8 */
+    --chart-2: #a3be8c; /* nord14 */
+    --chart-3: #ebcb8b; /* nord13 */
+    --chart-4: #d08770; /* nord12 */
+    --chart-5: #b48ead; /* nord15 */
+    --sidebar: #3b4252;
+    --sidebar-foreground: #eceff4;
+    --sidebar-primary: #88c0d0;
+    --sidebar-primary-foreground: #2e3440;
+    --sidebar-accent: #434c5e;
+    --sidebar-accent-foreground: #eceff4;
+    --sidebar-border: #4c566a;
+    --sidebar-ring: #81a1c1;
 }
 
 @layer base {
@@ -122,4 +126,15 @@
     @apply bg-background text-foreground;
     @apply font-sans;
     }
+
+  /* Hide the native up/down spinner on number inputs (e.g. temperature, max tokens) — it looks
+     like unstyled browser chrome next to shadcn's otherwise-consistent form controls. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 }
