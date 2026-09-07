@@ -1,5 +1,6 @@
-// Commands, domain types, providers, and storage are added incrementally as the
-// project grows — see docs/architecture.md and TODO.md for the current step.
+// Commands, providers, and storage are added incrementally as the project grows — see
+// docs/architecture.md and TODO.md for the current step.
+pub mod domain;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

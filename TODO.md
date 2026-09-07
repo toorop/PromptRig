@@ -34,11 +34,12 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 
 ## Step 1 — Rust domain & errors
 
-- [ ] `domain/error.rs` — `AppError` (thiserror internally, serializable DTO at the Tauri command boundary)
-- [ ] `domain/provider.rs` — `ProviderId` enum (OpenAi, Anthropic, Gemini, Mistral, OpenRouter, OpenAiCompatible)
-- [ ] `domain/model.rs` — `ModelInfo`, `ModelCapabilities`, `GenerationParams`
-- [ ] `domain/run.rs` — `Run`, `Usage`, `RunResult`
-- [ ] Unit tests for cost calculation (once `pricing/` exists)
+- [x] `domain/error.rs` — `AppError` (thiserror internally, hand-rolled `Serialize` impl using the Display message, so Tauri commands can return it directly)
+- [x] `domain/provider.rs` — `ProviderId` enum (OpenAi, Anthropic, Gemini, Mistral, OpenRouter, OpenAiCompatible)
+- [x] `domain/model.rs` — `ModelInfo`, `ModelCapabilities`, `GenerationParams`
+- [x] `domain/run.rs` — `Run`, `RunId`, `ExperimentId`, `Usage`, `RunResult`
+- [x] Unit tests: `AppError` JSON shape, `ProviderId` as_str()/serde consistency, `GenerationParams` defaults (3 tests, all passing)
+- [ ] Unit tests for cost calculation (deferred — `pricing/` doesn't exist yet, lands in Step 4)
 
 ## Step 2 — Secrets
 

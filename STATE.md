@@ -3,44 +3,64 @@
 Hand-off document: what's done, what's in progress, decisions made, and known issues — enough
 for a new session to resume cleanly. **Update this file in every commit that changes project
 state.** See [TODO.md](./TODO.md) for the detailed task checklist, [AGENTS.md](./AGENTS.md) for
-the working agreement (commit/state discipline, destructive-command precautions), and
+the working agreement (commit/state discipline, destructive-command precautions, one step at a
+time with a pause for review before commit/push), and
 `/home/toorop/.claude/plans/purrfect-frolicking-donut.md` for the full architecture plan
 approved by the user.
 
 ## Current step
 
-**Step 0 — Bootstrap**, in progress. See TODO.md for the exact checklist.
+**Step 1 — Rust domain & errors**: implemented, verified (tests/clippy/fmt all clean), awaiting
+user review before commit. Step 0 (Bootstrap) is complete and pushed.
 
 ## Done so far
 
-- Repo initialized (`git init`), Tauri 2 + Vue 3/TS scaffold generated via `create-tauri-app`
-  and renamed from the default `tauri-app` to `promptrig` everywhere (package.json,
-  `src-tauri/Cargo.toml`, lib name `promptrig_lib`, `tauri.conf.json` productName/title,
-  identifier `com.promptrig.app`).
-- Tailwind CSS v4 + shadcn-vue initialized (Reka UI base, Lucide icons, neutral base color,
-  CSS-variable theme with light/dark already defined by shadcn-vue's `.dark` class). Removed
-  the Google Fonts CDN import shadcn-vue's init added by default — using a system font stack
-  instead since this is an offline-capable desktop app.
-- Base shadcn-vue components added: button, input, textarea, select, card, label, separator,
-  badge.
-- Pinia + Vue Router installed and wired in `src/main.ts`. `@` → `src/*` path alias configured
-  in both `vite.config.ts` (resolve.alias) and `tsconfig.json` (paths).
-- Minimal app shell: `src/App.vue` has a top nav (Playground / Compare / Settings) over a
-  `RouterView`; three placeholder views exist at `src/views/{Playground,Compare,Settings}View.vue`.
-- Removed the scaffold's placeholder `greet` Tauri command from `src-tauri/src/lib.rs` (unused
-  once the nav shell replaced the template's demo UI).
-- Verified `npm run build` (vue-tsc + vite build) and `cargo check` both succeed.
+**Step 0 — Bootstrap** (committed & pushed):
+- Repo initialized, Tauri 2 + Vue 3/TS scaffold via `create-tauri-app`, renamed to `promptrig`
+  throughout (package.json, `src-tauri/Cargo.toml`, lib name `promptrig_lib`,
+  `tauri.conf.json` productName/title, identifier `com.promptrig.app`).
+- Tailwind CSS v4 + shadcn-vue (Reka UI base, Lucide icons, neutral base color, light/dark CSS
+  variable theme). Dropped the default Google Fonts CDN import for a system font stack.
+- Base shadcn-vue components: button, input, textarea, select, card, label, separator, badge.
+- Pinia + Vue Router wired in; `@` → `src/*` path alias configured (vite.config.ts + tsconfig.json).
+- Minimal app shell (`src/App.vue`: top nav Playground/Compare/Settings + `RouterView`, three
+  placeholder views). Removed the scaffold's placeholder `greet` command.
+- Repo meta for the public GitHub repo: README, LICENSE (MIT), SECURITY.md, CODE_OF_CONDUCT.md,
+  issue/PR templates, `AGENTS.md` (working agreement for AI agents on this repo).
+- `npm run build` and `cargo check` verified; `npm run tauri dev` smoke-tested successfully
+  (see Known issues for the NVIDIA/Wayland workaround needed on this dev machine).
+- GitHub remote configured by the user via VS Code: `origin` → `github.com/toorop/PromptRig`
+  (HTTPS). `gh auth setup-git` was run once in this session to let `git push` authenticate
+  through the `gh` CLI's stored credentials.
+- Untracked `.claude/scheduled_tasks.lock` (assistant session state, accidentally committed via
+  the editor) and added it to `.gitignore` alongside `settings.local.json`.
 
-- `README.md` (real content), `LICENSE` (MIT), `SECURITY.md`, `CODE_OF_CONDUCT.md`, and
-  `.github/ISSUE_TEMPLATE/` + `PULL_REQUEST_TEMPLATE.md` all written.
-- First commit made (`docs: add original project specification`), restoring `docs/start.md`.
+**Step 1 — Rust domain & errors** (implemented, not yet committed — see below):
+- `src-tauri/src/domain/error.rs` — `AppError` (thiserror for `Display`/internal `?`
+  conversions later) with a hand-rolled `Serialize` impl (`{ kind, message }`) so Tauri commands
+  can return it directly and the frontend gets the polished Display message. `AppResult<T>` alias.
+- `domain/provider.rs` — `ProviderId` enum (OpenAi, Anthropic, Gemini, Mistral, OpenRouter,
+  OpenAiCompatible); each variant has an explicit `#[serde(rename = ...)]` matching its
+  `as_str()` value (used for SQLite/keyring keys) — a test asserts these two hand-maintained
+  string sources never drift apart.
+- `domain/model.rs` — `ModelCapabilities` (which generation params a model supports),
+  `ModelInfo` (provider + model id + display name + capabilities + context window —
+  deliberately no pricing fields, cost stays independently updatable per the plan),
+  `GenerationParams` (temperature/top_p/max_tokens, all `Option`).
+- `domain/run.rs` — `RunId`/`ExperimentId` newtypes over `i64` (id assignment is the storage
+  layer's job, not designed yet), `Usage`, `RunResult` (provider call output), `Run` (the full
+  persisted record: request + result; `experiment_id: Option<ExperimentId>` so a solo
+  Playground run is just a 1-run Experiment).
+- New Cargo dependencies: `chrono` (with `serde` feature, for `Run.started_at`) and `thiserror`
+  — both small, standard, non-structural additions.
+- 3 unit tests added, all passing: `AppError` JSON shape, `ProviderId` as_str()/serde
+  consistency, `GenerationParams` defaults. `cargo check`, `cargo clippy --all-targets`, and
+  `cargo fmt --check` all clean.
 
 ## In progress / not yet done
 
-- `npm run tauri dev` has not been smoke-tested yet. A background run attempt was interrupted
-  by the user (mid-way through the process-issue correction below) — re-attempting it should
-  wait for an explicit go-ahead since it pops a real window on the user's live desktop session.
-- The scaffold + all Step 0 doc/meta files above are written but not yet committed (next action).
+- Step 1 changes above are complete but **not yet committed** — awaiting user review per the
+  step-by-step workflow (finish a step, stop, wait for go-ahead, then commit + push).
 
 ## Known issues / incidents
 
@@ -49,12 +69,12 @@ approved by the user.
   machine (NVIDIA proprietary driver, Hyprland/Wayland session) — a known WebKitGTK/DMA-BUF
   renderer issue, not an app bug. Workaround: run with `WEBKIT_DISABLE_DMABUF_RENDERER=1` set.
   To document in `docs/development.md` (Linux troubleshooting) once that file exists.
-
 - **Data-loss incident (recovered):** running `create-tauri-app ... --force` in the non-empty
   project directory silently deleted `docs/start.md` (the user's original spec), even though
   that path was unrelated to the Tauri template. Restored verbatim from conversation history
-  (verified: 615 lines, matching the original). Lesson recorded in assistant memory — never
-  force-scaffold into a non-empty directory without protecting existing files first.
+  (verified: 615 lines, matching the original). Lesson recorded in assistant memory and in
+  `AGENTS.md` — never force-scaffold into a non-empty directory without protecting existing
+  files first, and commit/update STATE.md regularly.
 
 ## Key decisions (see the plan file for full rationale)
 
@@ -63,19 +83,16 @@ approved by the user.
   `ProviderId` enum.
 - Rust↔TS type sync via `specta` + `tauri-specta` generated bindings.
 - `Experiment` containing N `Run`s from day one; a solo Playground run is a 1-run Experiment.
-- Cost = `f64` USD estimate from an externalized `pricing.json`.
+- Cost = `f64` USD estimate from an externalized `pricing.json`, kept independent of `ModelInfo`.
 - Streaming deferred (ship `generate()` first; `generate_stream()` + Tauri events later).
-- License: MIT. Repo meta: SECURITY.md, CODE_OF_CONDUCT.md, and issue/PR templates wanted from
-  the start (public repo).
-- All docs and code comments are written in English (conversation with the user is in French).
+- License: MIT. Repo meta: SECURITY.md, CODE_OF_CONDUCT.md, and issue/PR templates included
+  from the start (public repo).
+- All docs and code comments are written in English (conversation with the user is in French,
+  dictated via speech-to-text — expect occasional transcription oddities in their messages).
+- Work proceeds **one step at a time**: implement, verify, stop and report, wait for the user's
+  go-ahead, only then commit + push.
 
 ## Next action
 
-User is creating the GitHub repo now; once we have the remote URL, add it and push. Then move
-to Step 1 (Rust domain & errors).
-
-## Process note
-
-The user asked for an `AGENTS.md` codifying the commit/STATE.md discipline directly in the
-repo (not just in assistant memory), after this rule had to be repeated. It's in place at
-[AGENTS.md](./AGENTS.md) — follow it.
+Waiting on user review of Step 1 (domain module). Once confirmed, commit + push, then start
+Step 2 (Secrets: `secrets/` module wrapping the `keyring` crate).
