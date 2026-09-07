@@ -115,12 +115,15 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
   - Added a manual "↻ Refresh" button next to each model picker (Playground and every Compare column) that calls `loadModels(provider, { force: true })` — also clears the current model selection first, so the `Select`'s "Loading models…" placeholder actually shows (it only appears when nothing is selected; otherwise the previously-selected value stays displayed, just greyed out) — found via live testing, same session.
   - The `model_cache` SQLite table (Step 3) stays unused for now; not removed, since it could still be useful later (e.g. an offline mode).
   - `npm run build` clean throughout; verified live in `tauri dev` (including working around a Pinia+Vite HMR quirk — a stale in-memory store instance missing new fields — by doing a full dev-server restart rather than relying on hot-reload).
+- [x] **Mistral** (`providers/mistral.rs`) — same Chat Completions shape as OpenAI, but `/v1/models` is much more useful: each entry reports `capabilities.completion_chat` and `max_context_length` directly, so no id-string heuristics needed for filtering/capabilities/context window (unlike OpenAI). No reasoning-model quirk assumed (nothing found suggesting Mistral has an OpenAI-o-series-style split) — plain `build_request`, unit-tested for param-omission/inclusion shape.
+  - Registered in `ProviderRegistry`. No pricing entries yet — didn't want to guess exact API model-id strings for `pricing.json` without confirming them against a real `list_models` response first.
+  - **Manually tested by the user with a real key**: connects and authenticates correctly (models listed fine); a real generation call currently returns `HTTP 429 rate_limited` (Mistral error code `1300`) even after adding account credit — this is a request-rate limit, not a billing/quota issue, so adding funds wouldn't be expected to fix it; likely needs an explicit plan/workspace activation step on Mistral's side. Left as a known account-side blocker, not a code bug (the structured JSON error response proves auth + request formatting work correctly) — to revisit later.
+  - Two small UI fixes landed alongside this (found via the same testing session): `ResultPanel` copying a *failed* Run's error text didn't work (the Copy button only showed for a successful `run.result`) — now shows for any displayed text (top-level error, Run error, or success). Added `CopyButton.vue` (reusable) next to the System/User prompt labels in both Playground and Compare, per the user's request.
 - [ ] Anthropic
 - [ ] Google Gemini
-- [ ] Mistral
 - [ ] OpenRouter
 - [ ] Generic OpenAI-compatible endpoint
-- [ ] Pricing entries for each
+- [ ] Pricing entries for each provider once real model ids are confirmed via live testing
 
 ## Step 9 — UI polish
 

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import GenerationParamsFields from "@/components/playground/GenerationParamsFields.vue";
 import ResultPanel from "@/components/playground/ResultPanel.vue";
+import CopyButton from "@/components/CopyButton.vue";
 
 // Single-model playground: pick a provider/model, write prompts, run, inspect the result. The
 // prompt/params themselves live in a shared store (see stores/promptDraft.ts) so they carry
@@ -214,7 +215,10 @@ async function runGeneration() {
     <div class="grid flex-1 grid-cols-1 gap-4 overflow-auto md:grid-cols-2">
       <Card class="flex flex-col gap-4 overflow-auto p-4">
         <div class="flex flex-col gap-1.5">
-          <Label for="system-prompt">System prompt</Label>
+          <div class="flex items-center justify-between">
+            <Label for="system-prompt">System prompt</Label>
+            <CopyButton :text="systemPrompt" />
+          </div>
           <Textarea
             id="system-prompt"
             v-model="systemPrompt"
@@ -224,7 +228,10 @@ async function runGeneration() {
         </div>
 
         <div class="flex flex-1 flex-col gap-1.5">
-          <Label for="user-prompt">User prompt</Label>
+          <div class="flex items-center justify-between">
+            <Label for="user-prompt">User prompt</Label>
+            <CopyButton :text="userPrompt" />
+          </div>
           <Textarea
             id="user-prompt"
             v-model="userPrompt"

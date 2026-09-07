@@ -10,12 +10,12 @@ approved by the user.
 
 ## Current step
 
-Step 8's model list caching is committed and pushed. Now adding new providers **one at a time**,
-each stopped for the user to manually test with a real key before moving to the next (order can
-change on request — e.g. "let's do X instead" — and a skipped provider gets picked up later).
-User has keys ready to test Mistral and OpenRouter now; Anthropic (has a Claude subscription,
+Adding new providers to Step 8 **one at a time**; each gets committed + pushed individually
+(the user wants frequent commits, especially since they may need to stop mid-session). Mistral
+is done and committed. Moving to **OpenRouter** next. Anthropic (has a Claude subscription,
 unsure if the same account covers API access) and Gemini (has a Google account) need checking;
-the generic OpenAI-compatible endpoint has no obvious test target yet.
+the generic OpenAI-compatible endpoint has no obvious test target yet. Order can change on
+request; a skipped provider gets picked up later.
 
 ## Done so far
 
@@ -346,9 +346,39 @@ the generic OpenAI-compatible endpoint has no obvious test target yet.
 - `npm run build` clean throughout; manually verified live in `tauri dev` by the user twice
   (once for the cache itself, once for the refresh-button placeholder fix).
 
+**Mistral provider** (implemented, not yet committed — see below):
+- `providers/mistral.rs`: same Chat Completions wire format as OpenAI, but `/v1/models` reports
+  `capabilities.completion_chat` and `max_context_length` per model directly — no id-string
+  heuristics needed (unlike OpenAI's `is_chat_model`/`infer_capabilities`). No reasoning-model
+  quirk assumed (found no evidence Mistral has an OpenAI-o-series-style split); registered in
+  `ProviderRegistry`. 2 new unit tests (request-shape param omission/inclusion).
+- No `pricing.json` entries yet for Mistral — didn't want to guess exact API model-id strings
+  without confirming them against a real response first.
+- **Manually tested by the user with a real key**: connects/authenticates fine (model list
+  loaded correctly). A real generation call currently gets `HTTP 429 rate_limited` (Mistral
+  error code `1300`) even after the user added account credit and waited several minutes.
+  Diagnosis: this is a *request-rate* limit, not a billing/quota error — adding funds isn't
+  expected to fix it; likely needs an explicit plan/workspace activation on Mistral's console
+  (recalled from earlier research: Mistral requires explicitly selecting a plan, even the free
+  one, separately from adding a payment method). The structured JSON error response proves our
+  auth/request formatting work correctly — this is an account-side blocker, not a code bug.
+  Left to revisit later; not blocking moving on to the next provider.
+- Two small UI fixes from this testing session, unrelated to Mistral specifically:
+  - `ResultPanel`'s Copy button only appeared for a successful `run.result`, not for a Run's own
+    error text or the top-level error — exactly the case hit here (a 429 response). Now
+    `copyableText` covers all three text-display cases.
+  - New reusable `components/CopyButton.vue`, added next to the System/User prompt labels in
+    both `PlaygroundView` and `CompareView` (user's request — same convenience as the Result
+    copy button, for saving a good prompt).
+- `cargo check`/`clippy --all-targets`/`fmt --check`/`test` and `npm run build` all clean.
+  Verified live in `tauri dev` (a full restart was needed again — the file watcher didn't
+  auto-pick-up the new `providers/mistral.rs` file on its own).
+
 ## In progress / not yet done
 
-- Model caching is committed and pushed (`4b33730`). Starting Mistral next (see Current step).
+- Mistral provider + the two UI fixes above are complete but **not yet committed** — the user
+  wants a commit+push after *every* provider addition specifically (not just at bigger
+  milestones), partly because they may need to stop mid-session without much notice.
 
 ## Known issues / incidents
 

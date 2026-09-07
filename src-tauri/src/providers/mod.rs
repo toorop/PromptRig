@@ -3,6 +3,7 @@
 //! section — this is deliberately pragmatic rather than trying to hide every difference between
 //! providers.
 
+pub mod mistral;
 pub mod openai;
 
 use std::collections::HashMap;
@@ -49,6 +50,10 @@ impl ProviderRegistry {
     pub fn new() -> Self {
         let mut providers: HashMap<ProviderId, Box<dyn LlmProvider>> = HashMap::new();
         providers.insert(ProviderId::OpenAi, Box::new(openai::OpenAiProvider::new()));
+        providers.insert(
+            ProviderId::Mistral,
+            Box::new(mistral::MistralProvider::new()),
+        );
         Self { providers }
     }
 

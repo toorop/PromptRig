@@ -18,10 +18,28 @@ function formatCost(cost: number | null | undefined): string {
   return `$${cost.toFixed(6)}`;
 }
 
+// Whatever text is actually on screen right now — a successful result, a Run's own error (e.g.
+// a provider rejecting the request), or the top-level command error. The Copy button should
+// work for all three, not just the success case.
+const copyableText = computed(() => props.error ?? props.run?.error ?? props.run?.result?.text ?? null);
+
 async function copyResult() {
-  const text = props.run?.result?.text;
-  if (text) {
-    await navigator.clipboard.writeText(text);
+  if (copyableText.value) {
+    await navigator.clipboard.writeText(copyableText.value);
+  }
+}
+
+// Selecting text in the result area with the mouse and copying it (Ctrl+C / right-click Copy)
+// would otherwise copy the browser's default rich-HTML representation of the selection —
+// including every inline style computed on the source elements (color, font, etc., see
+// `main.css`'s theme variables) — which is useless when pasted anywhere that isn't itself a
+// rich text editor. Intercepting the copy event and substituting the plain-text selection fixes
+// that for any manual selection here, not just the dedicated "Copy" button above.
+function forcePlainTextCopy(event: ClipboardEvent) {
+  const selection = window.getSelection()?.toString();
+  if (selection) {
+    event.preventDefault();
+    event.clipboardData?.setData("text/plain", selection);
   }
 }
 </script>
@@ -30,10 +48,10 @@ async function copyResult() {
   <Card class="flex flex-col overflow-hidden">
     <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
       <CardTitle class="text-sm font-medium">Result</CardTitle>
-      <Button v-if="run?.result" variant="ghost" size="sm" @click="copyResult">Copy</Button>
+      <Button v-if="copyableText" variant="ghost" size="sm" @click="copyResult">Copy</Button>
     </CardHeader>
 
-    <CardContent class="flex flex-1 flex-col gap-3 overflow-auto">
+    <CardContent class="flex flex-1 flex-col gap-3 overflow-auto" @copy="forcePlainTextCopy">
       <p v-if="running" class="text-sm text-muted-foreground">Running…</p>
       <p v-else-if="error" class="text-sm text-destructive">{{ error }}</p>
       <template v-else-if="run">

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import GenerationParamsFields from "@/components/playground/GenerationParamsFields.vue";
 import ResultPanel from "@/components/playground/ResultPanel.vue";
+import CopyButton from "@/components/CopyButton.vue";
 
 // Side-by-side comparison: one Experiment, one Run per column. The shared system/user prompt
 // and params come from the same store Playground uses (see stores/promptDraft.ts) — Compare
@@ -161,7 +162,10 @@ async function rerunColumn(column: CompareColumn) {
     <Card class="flex flex-col gap-4 p-4">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div class="flex flex-col gap-1.5">
-          <Label for="compare-system-prompt">System prompt</Label>
+          <div class="flex items-center justify-between">
+            <Label for="compare-system-prompt">System prompt</Label>
+            <CopyButton :text="systemPrompt" />
+          </div>
           <Textarea
             id="compare-system-prompt"
             v-model="systemPrompt"
@@ -170,7 +174,10 @@ async function rerunColumn(column: CompareColumn) {
           />
         </div>
         <div class="flex flex-col gap-1.5">
-          <Label for="compare-user-prompt">User prompt</Label>
+          <div class="flex items-center justify-between">
+            <Label for="compare-user-prompt">User prompt</Label>
+            <CopyButton :text="userPrompt" />
+          </div>
           <Textarea id="compare-user-prompt" v-model="userPrompt" rows="4" placeholder="Ask something…" />
         </div>
       </div>
