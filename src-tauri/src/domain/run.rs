@@ -19,7 +19,7 @@ pub struct RunId(pub i64);
 pub struct ExperimentId(pub i64);
 
 /// Token counts reported by a provider for one generation call.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct Usage {
     pub input_tokens: u32,
     pub output_tokens: u32,
@@ -30,7 +30,7 @@ pub struct Usage {
 /// This is deliberately separate from `Run`: `RunResult` is just "what came back from the API
 /// call", while `Run` is the full persisted record (request + result). Keeping them separate
 /// means a provider implementation never needs to know about `Experiment`s, ids, or storage.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RunResult {
     pub text: String,
     /// `None` when the provider's response didn't include usage information.
@@ -46,7 +46,7 @@ pub struct RunResult {
 /// with `experiment_id: None`, and a side-by-side comparison is simply several Runs sharing the
 /// same `experiment_id`. The side-by-side UI (a later step) introduces no separate "comparison"
 /// concept in the domain — it's just multiple Runs.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Run {
     pub id: RunId,
     pub experiment_id: Option<ExperimentId>,

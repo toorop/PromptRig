@@ -8,7 +8,7 @@ use super::provider::ProviderId;
 /// l'affichage d'un paramètre qu'un fournisseur ou un modèle ne supporte pas." Pricing and
 /// context window are handled separately (see `pricing/`, added in a later step) so that the
 /// pricing table can be updated independently of this registry.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ModelCapabilities {
     pub supports_temperature: bool,
     pub supports_top_p: bool,
@@ -41,7 +41,7 @@ pub struct ModelInfo {
 /// Every field is optional: the frontend only sets the ones a model's `ModelCapabilities`
 /// mark as supported, and a provider module only includes the fields its API accepts when
 /// building the actual HTTP request.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct GenerationParams {
     pub temperature: Option<f64>,
     pub top_p: Option<f64>,

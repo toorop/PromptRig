@@ -50,9 +50,12 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 
 ## Step 3 — Storage
 
-- [ ] `storage/db.rs` — connection (`Arc<Mutex<rusqlite::Connection>>`) + `rusqlite_migration` runner
-- [ ] Initial migration: `prompts`, `test_cases`, `runs`, `experiments`, `model_cache` tables
-- [ ] Basic repositories + unit tests
+- [x] `storage/db.rs` — `Database` (`Arc<Mutex<rusqlite::Connection>>`) + `rusqlite_migration` runner, `open()` and `open_in_memory()` (for tests)
+- [x] Initial migration: `prompts`, `test_cases`, `runs`, `experiments`, `model_cache` tables (only `runs` has repository code so far — the rest get Rust types/repos when the features that use them are built)
+- [x] `storage/runs_repo.rs` — `NewRun`, `insert_run`, `get_run`; row parsing kept separate from the rusqlite row-mapping closure so JSON/provider/timestamp parse errors become `AppError` cleanly
+- [x] Added `domain::ProviderId::parse` (inverse of `as_str()`) and `PartialEq` on the run/model domain types, needed for storage round-trip tests
+- [x] Not yet wired into the Tauri app (`storage` isn't in `lib.rs`'s builder) — no command needs it until Step 5/6, so it's only exercised by its own tests for now
+- [x] Unit tests: migrations apply on an in-memory DB, Run insert/get round-trip (success case and failed-run case), missing id returns `None` (4 tests, all passing)
 
 ## Step 4 — First provider (OpenAI) + registry
 

@@ -59,6 +59,14 @@ impl ProviderId {
             ProviderId::OpenAiCompatible => "OpenAI-compatible",
         }
     }
+
+    /// The inverse of `as_str()` — used by the storage layer to turn the `provider` column back
+    /// into a `ProviderId` when reading a row. `None` for anything that isn't one of the known
+    /// strings (e.g. a row written by a future version of the app with a provider we don't know
+    /// about yet).
+    pub fn parse(s: &str) -> Option<Self> {
+        ProviderId::ALL.into_iter().find(|p| p.as_str() == s)
+    }
 }
 
 #[cfg(test)]
@@ -78,5 +86,17 @@ mod tests {
                 "as_str() and serde rename disagree for {provider:?}"
             );
         }
+    }
+
+    #[test]
+    fn parse_reverses_as_str_for_every_provider() {
+        for provider in ProviderId::ALL {
+            assert_eq!(ProviderId::parse(provider.as_str()), Some(provider));
+        }
+    }
+
+    #[test]
+    fn parse_rejects_unknown_strings() {
+        assert_eq!(ProviderId::parse("not_a_real_provider"), None);
     }
 }

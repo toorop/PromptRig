@@ -10,9 +10,8 @@ approved by the user.
 
 ## Current step
 
-**Step 2 — Secrets**: implemented, verified (tests/clippy/fmt all clean, real-keyring
-round-trip confirmed on this machine), awaiting user review before commit. Steps 0 and 1 are
-complete and pushed.
+**Step 3 — Storage**: implemented, verified (tests/clippy/fmt all clean), awaiting user review
+before commit. Steps 0, 1, and 2 are complete and pushed.
 
 ## Done so far
 
@@ -77,9 +76,35 @@ complete and pushed.
   key). Ran it manually once with `cargo test -- --ignored`: confirmed working against Secret
   Service on this Linux dev machine. `cargo check`/`clippy --all-targets`/`fmt --check` clean.
 
+**Step 3 — Storage** (implemented, not yet committed — see below):
+- `src-tauri/src/storage/migrations/0001_initial.sql` — `prompts`, `test_cases`, `experiments`,
+  `runs`, `model_cache` tables. Only `runs` has Rust repository code so far; the rest exist now
+  so the schema doesn't need a disruptive later migration, and get real repos when the features
+  that use them (prompt saving, side-by-side comparison, model list caching) are built.
+- `storage/db.rs` — `Database` (`Arc<Mutex<rusqlite::Connection>>`), `open()` / `open_in_memory()`
+  (tests), enables the `foreign_keys` pragma (off by default in SQLite; needed for `ON DELETE
+  SET NULL` on `runs.experiment_id`), runs migrations via `rusqlite_migration`.
+  `with_connection()` centralizes locking so a poisoned mutex becomes an `AppError`, not a panic.
+- `storage/runs_repo.rs` — `NewRun` (everything `Run` has except `id`, since SQLite assigns
+  that on insert), `insert_run`, `get_run`. The rusqlite row-mapping closure only extracts raw
+  column values (infallible); JSON/provider-string/timestamp parsing — which can fail — happens
+  afterward, outside the closure, so parse errors become plain `AppError`s instead of having to
+  be shoehorned into `rusqlite::Error`.
+- Added `domain::ProviderId::parse` (the inverse of `as_str()`, needed to read the `provider`
+  column back) and `PartialEq` on `ModelCapabilities`, `GenerationParams`, `Usage`, `RunResult`,
+  `Run` (needed for the round-trip test assertions).
+- New dependencies: `rusqlite` (`bundled` feature — statically compiles SQLite so no system
+  libsqlite3 is required on any platform/CI runner) and `rusqlite_migration`.
+- **Not wired into the Tauri app yet** (`storage` isn't referenced from `lib.rs`'s builder) —
+  deliberately deferred until a command actually needs it (Step 5/6), so it's only exercised by
+  its own tests for now.
+- 4 unit tests, all passing: migrations apply on an in-memory DB, Run insert/get round-trip
+  (success and failed-run cases), missing id returns `None`. `cargo check`/`clippy --all-targets`
+  /`fmt --check` all clean.
+
 ## In progress / not yet done
 
-- Step 2 changes above are complete but **not yet committed** — awaiting user review per the
+- Step 3 changes above are complete but **not yet committed** — awaiting user review per the
   step-by-step workflow (finish a step, stop, wait for go-ahead, then commit + push).
 
 ## Known issues / incidents
@@ -114,6 +139,6 @@ complete and pushed.
 
 ## Next action
 
-Waiting on user review of Step 2 (secrets module + commands). Once confirmed, commit + push,
-then start Step 3 (Storage: `storage/db.rs` with `rusqlite` + `rusqlite_migration`, initial
-schema, basic repositories).
+Waiting on user review of Step 3 (storage module). Once confirmed, commit + push, then start
+Step 4 (first provider — OpenAI — plus the `LlmProvider` trait, `ProviderRegistry`, and
+`pricing/` with a seeded `pricing.json`).
