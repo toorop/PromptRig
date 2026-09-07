@@ -37,6 +37,7 @@ aws-lc-rs = { version = "1.18.1", features = ["prebuilt-nasm"] }
 tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
 specta = { version = "=2.0.0-rc.25", features = ["derive", "chrono"] }
 specta-typescript = "0.0.12"
+futures = "0.3.34"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

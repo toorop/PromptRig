@@ -3,6 +3,7 @@
 //! rest of the app never writes SQL directly.
 
 pub mod db;
+pub mod experiments_repo;
 pub mod runs_repo;
 
 pub use db::Database;

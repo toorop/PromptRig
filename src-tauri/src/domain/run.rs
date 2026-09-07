@@ -1,26 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use super::experiment::ExperimentId;
+use super::id::id_as_string;
 use super::model::GenerationParams;
 use super::provider::ProviderId;
-
-/// (De)serializes an `i64` id as a string. Specta refuses to export `i64`/`u64` straight to
-/// TypeScript — JS numbers can't represent the full range without losing precision — so ids
-/// cross the Tauri IPC boundary as strings instead. Internally (SQLite, Rust comparisons) they
-/// stay plain `i64`.
-mod id_as_string {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    pub fn serialize<S: Serializer>(value: &i64, serializer: S) -> Result<S::Ok, S::Error> {
-        value.to_string().serialize(serializer)
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<i64, D::Error> {
-        String::deserialize(deserializer)?
-            .parse()
-            .map_err(serde::de::Error::custom)
-    }
-}
 
 /// Identifies a `Run` once it has been persisted.
 ///
@@ -29,16 +13,6 @@ mod id_as_string {
 /// reject it. Assigning the actual value is the storage layer's job.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 pub struct RunId(
-    #[serde(with = "id_as_string")]
-    #[specta(type = String)]
-    pub i64,
-);
-
-/// Identifies an `Experiment` (a group of Runs — see docs/start.md). The full `Experiment`
-/// domain type is introduced when side-by-side comparison is implemented; `Run` only needs the
-/// id to record which experiment, if any, it belongs to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
-pub struct ExperimentId(
     #[serde(with = "id_as_string")]
     #[specta(type = String)]
     pub i64,
@@ -62,7 +36,8 @@ pub struct RunResult {
     /// `None` when the provider's response didn't include usage information.
     pub usage: Option<Usage>,
     /// `u32` is plenty for a millisecond duration (up to ~49 days) and, unlike `u64`, is safe to
-    /// export straight to TypeScript (see `id_as_string` above for why that distinction matters).
+    /// export straight to TypeScript (see `domain::id::id_as_string` for why that distinction
+    /// matters for the id types).
     pub duration_ms: u32,
     /// Time to first token. `None` until streaming is implemented (see docs/start.md).
     pub ttft_ms: Option<u32>,

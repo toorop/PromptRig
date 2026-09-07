@@ -6,11 +6,14 @@
 //! (`secrets/`) all produce or consume these types without the domain module knowing they exist.
 
 pub mod error;
+pub mod experiment;
+mod id;
 pub mod model;
 pub mod provider;
 pub mod run;
 
 pub use error::{AppError, AppResult};
+pub use experiment::{Experiment, ExperimentId};
 pub use model::{GenerationParams, ModelCapabilities, ModelInfo};
 pub use provider::ProviderId;
-pub use run::{ExperimentId, Run, RunId, RunResult, Usage};
+pub use run::{Run, RunId, RunResult, Usage};

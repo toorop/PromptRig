@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
+import { storeToRefs } from "pinia";
 import { commands, type ModelInfo, type ProviderId, type Run } from "@/lib/bindings";
 import { useProvidersStore } from "@/stores/providers";
+import { usePromptDraftStore } from "@/stores/promptDraft";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -14,10 +15,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import GenerationParamsFields from "@/components/playground/GenerationParamsFields.vue";
 import ResultPanel from "@/components/playground/ResultPanel.vue";
 
-// Single-model playground: pick a provider/model, write prompts, run, inspect the result.
+// Single-model playground: pick a provider/model, write prompts, run, inspect the result. The
+// prompt/params themselves live in a shared store (see stores/promptDraft.ts) so they carry
+// over to/from the Compare view without an explicit hand-off step.
 const providersStore = useProvidersStore();
+const draft = usePromptDraftStore();
+const { systemPrompt, userPrompt, temperature, topP, maxTokens } = storeToRefs(draft);
 
 // Remembers the last provider/model the user actually ran something with, so re-opening the
 // Playground doesn't silently default to whichever model happens to sort first (which could be
@@ -53,17 +59,6 @@ const models = ref<ModelInfo[]>([]);
 const modelsLoading = ref(false);
 const modelsError = ref<string | null>(null);
 const selectedModelId = ref<string>();
-
-const systemPrompt = ref("");
-const userPrompt = ref("");
-// Kept as separate optional refs (rather than one GenerationParams object) so an empty input
-// naturally means "unset" — GenerationParams itself is only assembled at Run time, converting
-// `undefined` to `null` for the fields the backend expects. Pre-filled with commonly-used
-// defaults (rather than left blank) so a first-time Run doesn't require understanding these
-// before pressing the button.
-const temperature = ref<number>(0.7);
-const topP = ref<number>(1);
-const maxTokens = ref<number>(1024);
 
 const running = ref(false);
 const run = ref<Run | null>(null);
@@ -225,38 +220,8 @@ async function runGeneration() {
           />
         </div>
 
-        <div v-if="selectedModel" class="flex flex-wrap gap-4 border-t pt-4">
-          <div v-if="selectedModel.capabilities.supports_temperature" class="flex flex-col gap-1.5">
-            <Label for="temperature" class="text-xs text-muted-foreground">Temperature</Label>
-            <Input
-              id="temperature"
-              v-model.number="temperature"
-              type="number"
-              step="0.1"
-              min="0"
-              max="2"
-              class="w-24"
-            />
-            <p class="text-xs text-muted-foreground">0 = deterministic, 2 = very random</p>
-          </div>
-          <div v-if="selectedModel.capabilities.supports_top_p" class="flex flex-col gap-1.5">
-            <Label for="top-p" class="text-xs text-muted-foreground">Top P</Label>
-            <Input
-              id="top-p"
-              v-model.number="topP"
-              type="number"
-              step="0.05"
-              min="0"
-              max="1"
-              class="w-24"
-            />
-            <p class="text-xs text-muted-foreground">Alt. to temperature, usually tune one</p>
-          </div>
-          <div v-if="selectedModel.capabilities.supports_max_tokens" class="flex flex-col gap-1.5">
-            <Label for="max-tokens" class="text-xs text-muted-foreground">Max tokens</Label>
-            <Input id="max-tokens" v-model.number="maxTokens" type="number" step="1" min="1" class="w-28" />
-            <p class="text-xs text-muted-foreground">Caps response length &amp; cost</p>
-          </div>
+        <div v-if="selectedModel" class="border-t pt-4">
+          <GenerationParamsFields :capabilities="selectedModel.capabilities" />
         </div>
       </Card>
 

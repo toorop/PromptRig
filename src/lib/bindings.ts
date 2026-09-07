@@ -11,6 +11,7 @@ export const commands = {
 	testProviderConnection: (provider: ProviderId) => typedError<null, AppError>(__TAURI_INVOKE("test_provider_connection", { provider })),
 	listModels: (provider: ProviderId) => typedError<ModelInfo[], AppError>(__TAURI_INVOKE("list_models", { provider })),
 	runGeneration: (input: RunGenerationInput) => typedError<Run_Serialize, AppError>(__TAURI_INVOKE("run_generation", { input })),
+	runExperiment: (input: RunExperimentInput) => typedError<RunExperimentResult_Serialize, AppError>(__TAURI_INVOKE("run_experiment", { input })),
 };
 
 /* Types */
@@ -27,26 +28,64 @@ export const commands = {
  */
 export type AppError = { kind: "Provider"; message: string } | { kind: "Storage"; message: string } | { kind: "Secret"; message: string } | { kind: "NotFound"; message: string } | { kind: "InvalidInput"; message: string };
 
+/**  One column of the comparison: which Provider + Model to run the shared prompt against. */
+export type ComparisonColumn = {
+	provider: ProviderId,
+	model_id: string,
+};
+
 /**
- *  Identifies an `Experiment` (a group of Runs — see docs/start.md). The full `Experiment`
- *  domain type is introduced when side-by-side comparison is implemented; `Run` only needs the
- *  id to record which experiment, if any, it belongs to.
+ *  A group of Runs belonging to the same logical test — see docs/start.md's Experiment section.
+ * 
+ *  A side-by-side comparison (multiple Provider+Model columns run against the same prompt) is
+ *  simply an Experiment with several Runs; a solo Playground execution is a Run with no
+ *  Experiment at all. There is no separate "comparison" concept in the domain.
+ */
+export type Experiment = Experiment_Serialize | Experiment_Deserialize;
+
+/**
+ *  Identifies an `Experiment` once it has been persisted. See `RunId` for why this wraps `i64`
+ *  but crosses IPC as a string.
  */
 export type ExperimentId = ExperimentId_Serialize | ExperimentId_Deserialize;
 
 /**
- *  Identifies an `Experiment` (a group of Runs — see docs/start.md). The full `Experiment`
- *  domain type is introduced when side-by-side comparison is implemented; `Run` only needs the
- *  id to record which experiment, if any, it belongs to.
+ *  Identifies an `Experiment` once it has been persisted. See `RunId` for why this wraps `i64`
+ *  but crosses IPC as a string.
  */
 export type ExperimentId_Deserialize = string;
 
 /**
- *  Identifies an `Experiment` (a group of Runs — see docs/start.md). The full `Experiment`
- *  domain type is introduced when side-by-side comparison is implemented; `Run` only needs the
- *  id to record which experiment, if any, it belongs to.
+ *  Identifies an `Experiment` once it has been persisted. See `RunId` for why this wraps `i64`
+ *  but crosses IPC as a string.
  */
 export type ExperimentId_Serialize = string;
+
+/**
+ *  A group of Runs belonging to the same logical test — see docs/start.md's Experiment section.
+ * 
+ *  A side-by-side comparison (multiple Provider+Model columns run against the same prompt) is
+ *  simply an Experiment with several Runs; a solo Playground execution is a Run with no
+ *  Experiment at all. There is no separate "comparison" concept in the domain.
+ */
+export type Experiment_Deserialize = {
+	id: ExperimentId_Deserialize,
+	name: string,
+	created_at: string,
+};
+
+/**
+ *  A group of Runs belonging to the same logical test — see docs/start.md's Experiment section.
+ * 
+ *  A side-by-side comparison (multiple Provider+Model columns run against the same prompt) is
+ *  simply an Experiment with several Runs; a solo Playground execution is a Run with no
+ *  Experiment at all. There is no separate "comparison" concept in the domain.
+ */
+export type Experiment_Serialize = {
+	id: ExperimentId_Serialize,
+	name: string,
+	created_at: string,
+};
 
 /**
  *  Generation parameters as configured by the user for a Run.
@@ -130,6 +169,33 @@ export type ProviderStatus = {
  */
 export type Run = Run_Serialize | Run_Deserialize;
 
+export type RunExperimentInput = {
+	system_prompt: string,
+	user_prompt: string,
+	params: GenerationParams,
+	columns: ComparisonColumn[],
+};
+
+export type RunExperimentResult = RunExperimentResult_Serialize | RunExperimentResult_Deserialize;
+
+export type RunExperimentResult_Deserialize = {
+	experiment: Experiment_Deserialize,
+	/**
+	 *  Same order as `RunExperimentInput::columns` — the frontend zips them back together by
+	 *  index, not by re-matching provider/model (two columns could use the same model).
+	 */
+	runs: Run_Deserialize[],
+};
+
+export type RunExperimentResult_Serialize = {
+	experiment: Experiment_Serialize,
+	/**
+	 *  Same order as `RunExperimentInput::columns` — the frontend zips them back together by
+	 *  index, not by re-matching provider/model (two columns could use the same model).
+	 */
+	runs: Run_Serialize[],
+};
+
 /**
  *  What the frontend sends to run one generation. Mirrors `Run`'s "request" half — the
  *  "result" half gets filled in here after calling the provider.
@@ -182,7 +248,8 @@ export type RunResult = {
 	usage: Usage | null,
 	/**
 	 *  `u32` is plenty for a millisecond duration (up to ~49 days) and, unlike `u64`, is safe to
-	 *  export straight to TypeScript (see `id_as_string` above for why that distinction matters).
+	 *  export straight to TypeScript (see `domain::id::id_as_string` for why that distinction
+	 *  matters for the id types).
 	 */
 	duration_ms: number,
 	/**  Time to first token. `None` until streaming is implemented (see docs/start.md). */

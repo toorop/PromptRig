@@ -10,8 +10,9 @@ approved by the user.
 
 ## Current step
 
-Steps 0–6 are complete, committed, and pushed. Step 6 was manually verified end-to-end by the
-user with a real OpenAI key. About to start **Step 7 — Side-by-side comparison**.
+**Step 7 — Side-by-side comparison**: implemented and **manually verified by the user**
+(compared multiple OpenAI models including one with no pricing entry — fallback worked
+correctly) — awaiting commit. Steps 0–6 are complete, committed, and pushed.
 
 ## Done so far
 
@@ -246,9 +247,79 @@ user with a real OpenAI key. About to start **Step 7 — Side-by-side comparison
     knowledge instead of loading either skill.
 - `npm run build` (vue-tsc + vite) clean throughout this whole step. No Rust changes.
 
+**Step 7 — Side-by-side comparison** (implemented, not yet committed — see below):
+- Discussed the Playground↔Compare relationship with the user before building: they initially
+  proposed a directed flow (configure in Playground, then switch to Compare which reuses it),
+  but agreed a shared store (edit either view, both stay in sync, no required visit order) is
+  better — avoids a confusing "Compare is empty because you skipped a step" trap.
+- `domain::Experiment` (id, name, created_at) — `ExperimentId` moved out of `run.rs` into a new
+  `domain/experiment.rs`; the `id_as_string` serde helper (string-across-IPC for `i64` ids) is
+  now in its own `domain/id.rs`, shared by both `RunId` and `ExperimentId` instead of being
+  duplicated.
+- `storage::experiments_repo::insert_experiment` — deliberately minimal (no `get_experiment`/
+  `list_experiments`): `run_experiment` already knows the id/name/timestamp it just created
+  without reading it back, and nothing needs to browse past experiments yet. Tests include a
+  real foreign-key-violation check (a Run referencing a nonexistent experiment_id is rejected),
+  which doubles as a regression guard on the `PRAGMA foreign_keys = ON` set back in Step 3.
+- `commands::experiments::run_experiment`: creates one Experiment, then runs all columns
+  *concurrently* via `futures::future::join_all` (new dependency — plain `join_all` over
+  borrowed futures within one async task; no `tokio::spawn`/`'static`/`Arc`-cloning needed since
+  we're not spawning separate tasks, just polling several HTTP-bound futures together).
+  A column's own setup error (missing API key, unimplemented provider) is folded into that
+  column's persisted Run (`error` set) rather than aborting the whole comparison — one
+  misconfigured column shouldn't sink the others. Results come back in the same order as the
+  submitted columns (by re-fetching each known `RunId` in order after `join_all`, not by
+  relying on SQLite `rowid` order, which could differ from submission order once several
+  provider calls race each other).
+- Extracted `commands::build_new_run` (outcome → `NewRun` fields) so `run_generation` and the
+  per-column runner share that mapping instead of duplicating it; kept their *differing*
+  early-failure handling (a missing key aborts a solo Playground run outright, but must not
+  abort a whole comparison) as separate code rather than forcing them into one shared function.
+- `stores/promptDraft.ts` (Pinia): system prompt, user prompt, temperature/top_p/max_tokens —
+  shared by Playground and Compare.
+- `components/playground/GenerationParamsFields.vue` extracted from Playground's inline param
+  editor, now used by both views: Playground passes the selected model's `capabilities` (filters
+  to supported fields), Compare passes none (shows all three, since columns can have different
+  models with different support — the backend's `build_request` already silently drops whatever
+  a given model doesn't accept).
+- `CompareView.vue`: dynamic columns (add/remove, floor of 1), each with an independent
+  provider/model picker (models fetched live per column via `list_models`), shared prompt/params
+  section on top, `Run all` (disabled until every column is configured and the user prompt is
+  non-empty), per-column `Rerun` (via `run_generation`, not `run_experiment` — becomes a
+  standalone Run outside the original Experiment; acceptable for now, no experiment-browsing UI
+  exists yet to make that matter).
+- `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (26 passed, 1 ignored) and
+  `npm run build` all clean. Relaunched `tauri dev` to regenerate `bindings.ts` with the new
+  `run_experiment` command/types — no panics, HMR picked up the new views cleanly.
+- **Manual test done by the user**: compared multiple OpenAI models side by side, including
+  `gpt-3.5-turbo` (apparently still available on their account, despite the assumption in Step 4
+  that it was likely deprecated — worth remembering the model catalog is more varied per-account
+  than assumed). Confirmed the missing-pricing fallback works as designed: `gpt-3.5-turbo` isn't
+  in `pricing.json`, and the UI correctly showed "—" for cost instead of erroring.
+- Three polish items noted for Step 9 (not fixed now): `ResultPanel`'s `<pre>` text renders in
+  the browser's default monospace font rather than the app's theme font; no scrolling when the
+  window is smaller than the content (bottom gets clipped instead of scrolling); both found
+  during this manual Compare test.
+- **Two more bugs found and fixed from continued live testing:**
+  - `CompareView` never called `providersStore.refresh()` on mount (Playground and Settings
+    both do) — landing on Compare first showed "no provider configured" even when one was.
+  - Compare's column state was local component `ref` state, so switching to Playground and back
+    reset it entirely (Vue destroys a view's local state on navigation away). Moved into a new
+    `stores/compare.ts` (Pinia) — same "state that must survive navigation lives in a store"
+    pattern as `promptDraft`/`providers`. `CompareColumn` interface now lives in that store file
+    and is imported by `CompareView.vue`.
+- **Model list caching discussed, explicitly deferred to Step 8** (not implemented in Step 7):
+  the user noticed `list_models` fires a fresh live API call every time a provider is picked on
+  a Compare column — e.g. picking OpenAI on 2 columns makes 2 identical requests. Agreed plan:
+  use the already-existing (since Step 3, unused) `model_cache` SQLite table with a ~24h
+  freshness window, plus a manual "Refresh models" action to force a re-fetch. Added as the
+  first item of Step 8, ahead of adding more providers, so every provider benefits from it.
+
 ## In progress / not yet done
 
-- Nothing in progress right now — Steps 0–6 are all committed and pushed. Step 7 hasn't started.
+- Step 7 changes above are complete but **not yet committed** — awaiting the user's manual test
+  and review per the step-by-step workflow (finish a step, stop, wait for go-ahead, then commit
+  + push).
 
 ## Known issues / incidents
 
@@ -282,8 +353,10 @@ user with a real OpenAI key. About to start **Step 7 — Side-by-side comparison
 
 ## Next action
 
-Start Step 7 (side-by-side comparison: extend `experiments_repo`, `run_experiment` command,
-`CompareView`).
+Waiting on the user to manually test Compare (2-3 OpenAI models side by side). Once confirmed,
+commit + push, then start Step 8 (generalize to Anthropic, Gemini, Mistral, OpenRouter, generic
+OpenAI-compatible — same trait, same commands, just new `providers/*.rs` modules + registry
+entries + pricing rows).
 
 ## Deferred ideas (see TODO.md's "Deferred ideas" section for detail)
 

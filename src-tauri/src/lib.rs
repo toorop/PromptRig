@@ -25,6 +25,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
         commands::providers::test_provider_connection,
         commands::providers::list_models,
         commands::runs::run_generation,
+        commands::experiments::run_experiment,
     ])
 }
 

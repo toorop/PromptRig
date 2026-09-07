@@ -93,13 +93,23 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 
 ## Step 7 — Side-by-side comparison
 
-- [ ] Extend `experiments_repo`
-- [ ] `run_experiment` command — parallel execution of multiple Runs (`tokio` tasks)
-- [ ] `CompareView`: dynamic columns (add/remove), shared prompt editable per column, `Run all`, rerun a single column
-- [ ] **Manual test**: compare 2-3 OpenAI models side by side
+- [x] `domain::Experiment` + `ExperimentId` (moved out of `run.rs` into its own `experiment.rs`; shared `domain::id::id_as_string` serde helper extracted so both id newtypes use it)
+- [x] `storage::experiments_repo::insert_experiment` — only what's needed now (no `get_experiment`/`list_experiments` yet, same "storage ahead of use, but only what's needed" pattern as prompts/test_cases in Step 3)
+- [x] `commands::experiments::run_experiment` — one Experiment, N Runs (one per column), run concurrently via `futures::future::join_all` (new small dependency); a column's own config error (e.g. missing API key) becomes that column's failed Run instead of aborting the whole comparison
+- [x] Shared `commands::build_new_run` helper extracted (used by both `run_generation` and the per-column runner) so the "outcome → NewRun fields" mapping exists once
+- [x] `stores/promptDraft.ts` (Pinia): system prompt, user prompt, and base params, shared between Playground and Compare with no explicit hand-off — discussed with the user, who initially proposed a directed Playground→Compare flow but agreed shared state is better (works regardless of which view you open first)
+- [x] `components/playground/GenerationParamsFields.vue` extracted (temperature/top_p/max_tokens editor), reused by both Playground (filtered by the selected model's capabilities) and Compare (shows all three unconditionally, since columns can have different models — the backend already drops whatever a column's model doesn't support)
+- [x] `CompareView`: dynamic columns (add/remove, minimum 1), each with its own provider/model picker; `Run all`; per-column `Rerun` (via the single-run command — creates a standalone Run rather than reattaching to the original Experiment, acceptable since there's no experiment-browsing UI yet to care)
+- [x] **Manual test, done by the user**: compared multiple OpenAI models side by side, including `gpt-3.5-turbo` — confirmed the missing-pricing fallback works as designed (shows "—" for cost instead of erroring, since that model isn't in `pricing.json`)
+- Two bugs found and fixed from that live testing:
+  - `CompareView` never called `providersStore.refresh()` on mount (unlike Playground/Settings) — landing on Compare first (fresh navigation or reload) showed "no provider configured" even when one was, until another view happened to trigger the fetch.
+  - Compare's column state (list of columns, each one's provider/model selection and results) was local component `ref` state, so it reset every time the user navigated away from Compare and back (Vue destroys a view's local state on route change). Moved into a new `stores/compare.ts` (Pinia), matching the same pattern as `promptDraft`/`providers` — state that needs to survive navigation lives in a store, not in the view.
+- Noted for Step 8 (not fixed now, explicitly deferred by the user): `list_models` has no caching — picking the same provider on multiple Compare columns fires duplicate live API calls. Plan: use the already-existing `model_cache` table with a ~24h freshness window plus a manual refresh action.
+- `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (26 passed, 1 ignored, +3 new experiments_repo tests including a real FK-violation check) and `npm run build` all clean; `tauri dev` relaunched to regenerate bindings, no panics
 
 ## Step 8 — Generalize providers
 
+- [ ] **Model list caching (moved up from a deferred idea, decided 2026-09-07)**: `list_models` currently hits the provider's API every time — felt as a real annoyance during Step 7 testing (picking the same provider on 2+ Compare columns fires duplicate live requests). Use the `model_cache` table (created in Step 3, unused since): `list_models` checks the cache first (fresh if < 24h old), only calls the provider API on a cache miss/stale entry, plus a manual "Refresh models" affordance to force a re-fetch. Do this first, before adding more providers, so every provider benefits from it.
 - [ ] Anthropic
 - [ ] Google Gemini
 - [ ] Mistral
@@ -114,6 +124,8 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 - [ ] Resizable panels
 - [ ] Advanced params drawer
 - [ ] Easy result copy (basic copy button already added to `ResultPanel` in Step 6 — revisit only if it needs more than that)
+- [ ] `ResultPanel`'s `<pre>` result text renders in the browser's default monospace font, not the app's theme font — found during Step 7 Compare testing
+- [ ] No scrolling when the window is smaller than the content — bottom content gets clipped/hidden instead of scrolling into view (found during Step 7 Compare testing with multiple columns); likely related to the resizable-panels work above rather than a separate fix
 
 ## Step 10 — CI/CD
 
