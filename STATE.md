@@ -10,9 +10,10 @@ approved by the user.
 
 ## Current step
 
-**Step 5 — Tauri commands + generated bindings**: implemented, verified (tests/clippy/fmt all
-clean, real `tauri dev` smoke test passed after fixing a real panic — see below), awaiting user
-review before commit. Steps 0–4 are complete, committed, and pushed.
+Steps 0–5 are complete, committed, and pushed. About to start **Step 6 — Playground vertical
+slice**: SettingsView (OpenAI provider card) + PlaygroundView (provider/model picker, prompt
+editors, params, Run button, result panel), the first screens actually wired to the commands
+from Step 5.
 
 ## Done so far
 
@@ -147,7 +148,7 @@ review before commit. Steps 0–4 are complete, committed, and pushed.
   real key) — offered to the user to test manually if they want, same pattern as the keyring
   `#[ignore]`d integration test in Step 2.
 
-**Step 5 — Tauri commands + generated bindings** (implemented, not yet committed — see below):
+**Step 5 — Tauri commands + generated bindings** (committed & pushed, `29c5273`):
 - `commands/providers.rs`: `list_providers` (sync, returns `ProviderStatus` — provider id,
   display name, `implemented` from the registry, `configured` from `has_api_key`),
   `test_provider_connection` and `list_models` (both async, look up the key via the new shared
@@ -196,8 +197,9 @@ review before commit. Steps 0–4 are complete, committed, and pushed.
 
 ## In progress / not yet done
 
-- Step 5 changes above are complete but **not yet committed** — awaiting user review per the
-  step-by-step workflow (finish a step, stop, wait for go-ahead, then commit + push).
+- Nothing in progress right now — Steps 0–5 are all committed and pushed. Step 6 hasn't started.
+  User stepped away (~30 min, back shortly) right after confirming the Step 5 commit/push —
+  paused here, not starting Step 6 without them.
 
 ## Known issues / incidents
 
@@ -231,9 +233,7 @@ review before commit. Steps 0–4 are complete, committed, and pushed.
 
 ## Next action
 
-Waiting on user review of Step 5 (commands, real Tauri wiring, generated bindings). Once
-confirmed, commit + push, then start Step 6 (Playground vertical slice: SettingsView provider
-card + PlaygroundView, the first screens actually wired to these commands).
+User is away briefly; when they're back, start Step 6 (Playground vertical slice).
 
 ## Deferred ideas (see TODO.md's "Deferred ideas" section for detail)
 
