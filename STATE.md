@@ -10,9 +10,8 @@ approved by the user.
 
 ## Current step
 
-**Step 6 — Playground vertical slice**: implemented and **manually verified end-to-end by the
-user with a real OpenAI key** (see below) — awaiting user review before commit. Steps 0–5 are
-complete, committed, and pushed.
+Steps 0–6 are complete, committed, and pushed. Step 6 was manually verified end-to-end by the
+user with a real OpenAI key. About to start **Step 7 — Side-by-side comparison**.
 
 ## Done so far
 
@@ -194,7 +193,7 @@ complete, committed, and pushed.
 - `cargo check`/`clippy --all-targets`/`fmt --check`/`test` (23 passed, 1 ignored) and
   `npm run build` (vue-tsc typechecks the generated bindings) all clean.
 
-**Step 6 — Playground vertical slice** (implemented, not yet committed — see below):
+**Step 6 — Playground vertical slice** (committed & pushed, `021e4ff`):
 - `src/stores/providers.ts` — Pinia store holding `ProviderStatus[]`, shared by Settings (which
   writes) and Playground (which only reads), so Playground reflects a newly-configured key
   without needing to know Settings exists.
@@ -249,8 +248,7 @@ complete, committed, and pushed.
 
 ## In progress / not yet done
 
-- Step 6 changes above are complete but **not yet committed** — awaiting user review per the
-  step-by-step workflow (finish a step, stop, wait for go-ahead, then commit + push).
+- Nothing in progress right now — Steps 0–6 are all committed and pushed. Step 7 hasn't started.
 
 ## Known issues / incidents
 
@@ -284,9 +282,8 @@ complete, committed, and pushed.
 
 ## Next action
 
-Waiting on user review of Step 6 (Playground vertical slice, manually verified working). Once
-confirmed, commit + push, then start Step 7 (side-by-side comparison: extend `experiments_repo`,
-`run_experiment` command, `CompareView`).
+Start Step 7 (side-by-side comparison: extend `experiments_repo`, `run_experiment` command,
+`CompareView`).
 
 ## Deferred ideas (see TODO.md's "Deferred ideas" section for detail)
 
