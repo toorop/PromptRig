@@ -1,6 +1,6 @@
 [package]
 name = "promptrig"
-version = "0.1.0"
+version = "0.2.0"
 description = "Desktop app for prompt engineering and side-by-side LLM comparison"
 authors = ["PromptRig contributors"]
 edition = "2021"
