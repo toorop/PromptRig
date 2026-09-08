@@ -4,10 +4,10 @@ import { storeToRefs } from "pinia";
 import { commands, type ProviderId, type Run } from "@/lib/bindings";
 import { useProvidersStore } from "@/stores/providers";
 import { usePromptDraftStore } from "@/stores/promptDraft";
+import { RefreshCw } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -15,9 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import GenerationParamsFields from "@/components/playground/GenerationParamsFields.vue";
 import ResultPanel from "@/components/playground/ResultPanel.vue";
 import CopyButton from "@/components/CopyButton.vue";
+import ResetButton from "@/components/ResetButton.vue";
+import LabelHint from "@/components/LabelHint.vue";
 
 // Single-model playground: pick a provider/model, write prompts, run, inspect the result. The
 // prompt/params themselves live in a shared store (see stores/promptDraft.ts) so they carry
@@ -161,9 +164,14 @@ async function runGeneration() {
   <div class="flex h-full flex-col gap-4 p-4">
     <div class="flex flex-wrap items-end gap-3 rounded-xl bg-card p-3 ring-1 ring-foreground/10">
       <div class="flex flex-col gap-1.5">
-        <Label class="text-xs text-muted-foreground">Provider</Label>
+        <LabelHint
+          field-id="provider-select"
+          hint="The API/company that will run the model: OpenAI, Anthropic, Google Gemini, Mistral, or OpenRouter."
+        >
+          Provider
+        </LabelHint>
         <Select v-model="selectedProvider">
-          <SelectTrigger class="w-48 text-[15px]">
+          <SelectTrigger id="provider-select" class="w-48 text-[15px]">
             <SelectValue placeholder="Select a provider" />
           </SelectTrigger>
           <SelectContent>
@@ -175,10 +183,15 @@ async function runGeneration() {
       </div>
 
       <div class="flex flex-col gap-1.5">
-        <Label class="text-xs text-muted-foreground">Model</Label>
+        <LabelHint
+          field-id="model-select"
+          hint="The specific model to run. Newer/larger models are usually more capable but cost more per token."
+        >
+          Model
+        </LabelHint>
         <div class="flex gap-1.5">
           <Select v-model="selectedModelId" :disabled="!selectedProvider || modelsLoading">
-            <SelectTrigger class="w-64 text-[15px]">
+            <SelectTrigger id="model-select" class="w-64 text-[15px]">
               <SelectValue :placeholder="modelsLoading ? 'Loading models…' : 'Select a model'" />
             </SelectTrigger>
             <SelectContent>
@@ -187,14 +200,19 @@ async function runGeneration() {
               </SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            variant="outline"
-            :disabled="!selectedProvider || modelsLoading"
-            title="Re-fetch the model list from the provider"
-            @click="refreshModels"
-          >
-            ↻
-          </Button>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                variant="outline"
+                size="icon"
+                :disabled="!selectedProvider || modelsLoading"
+                @click="refreshModels"
+              >
+                <RefreshCw class="size-4" :class="{ 'animate-spin': modelsLoading }" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Re-fetch the model list from the provider</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
@@ -216,8 +234,16 @@ async function runGeneration() {
       <Card class="flex flex-col gap-4 overflow-auto p-4">
         <div class="flex flex-col gap-1.5">
           <div class="flex items-center justify-between">
-            <Label for="system-prompt">System prompt</Label>
-            <CopyButton :text="systemPrompt" />
+            <LabelHint
+              field-id="system-prompt"
+              hint="Instructions that set the assistant's behavior, tone, and constraints for this run."
+            >
+              System prompt
+            </LabelHint>
+            <div class="flex items-center gap-0.5">
+              <CopyButton :text="systemPrompt" />
+              <ResetButton :disabled="!systemPrompt" @click="systemPrompt = ''" />
+            </div>
           </div>
           <Textarea
             id="system-prompt"
@@ -230,8 +256,13 @@ async function runGeneration() {
 
         <div class="flex flex-1 flex-col gap-1.5">
           <div class="flex items-center justify-between">
-            <Label for="user-prompt">User prompt</Label>
-            <CopyButton :text="userPrompt" />
+            <LabelHint field-id="user-prompt" hint="The actual message or question sent to the model.">
+              User prompt
+            </LabelHint>
+            <div class="flex items-center gap-0.5">
+              <CopyButton :text="userPrompt" />
+              <ResetButton :disabled="!userPrompt" @click="userPrompt = ''" />
+            </div>
           </div>
           <Textarea
             id="user-prompt"

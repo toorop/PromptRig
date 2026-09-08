@@ -10,11 +10,12 @@ approved by the user.
 
 ## Current step
 
-Step 9 (UI polish), in progress, 2026-09-08. Self-hosted typography and the light/dark theme
-toggle (dark by default) are done, committed, and pushed. Currently mid-iteration on
-Select/Input toolbar font sizing, which the user has taken over by hand (see TODO.md) — the next
-UI item to pick up is whatever the user directs next; don't touch the font-size classes without
-being asked.
+Step 9 (UI polish), in progress, 2026-09-08. Self-hosted typography, the light/dark theme toggle
+(dark by default), and a pass of real tooltips + param validation (see below) are done,
+committed, and pushed. Currently mid-iteration on Select/Input toolbar font sizing, which the
+user has taken over by hand (see TODO.md) — the next UI item to pick up is whatever the user
+directs next ("encore d'autres choses concernant l'UI et le design qu'on fera après" — nothing
+specific queued yet); don't touch the font-size classes without being asked.
 
 ## Done so far
 
@@ -489,6 +490,43 @@ being asked.
   `tauri dev` session (page-reloaded on the `main.ts` change, hot-updated `App.vue` after) —
   no full restart needed this time. User confirmed the result looked right before requesting
   the commit.
+
+**Step 9 (in progress) — real tooltips + param validation** (committed & pushed):
+- Added shadcn-vue's `tooltip` component (`src/components/ui/tooltip/`, built on `reka-ui`'s
+  `TooltipRoot`/`TooltipTrigger`/`TooltipContent`/`TooltipProvider` — a real hover/focus-driven
+  tooltip, not the native `title` attribute already known not to render reliably under
+  WebKitGTK). `App.vue`'s whole tree is wrapped in one `TooltipProvider` at the root.
+  - Running the shadcn-vue CLI re-added the Google Fonts CDN `@import` for "Geist" in
+    `main.css` that had been deliberately removed twice before (Step 0's system-font-stack
+    switch, then Step 9's self-hosted-IBM-Plex switch) — caught immediately via `git diff` and
+    stripped back out before committing anything else.
+- `GenerationParamsFields.vue`: replaced the always-visible one-line caption under each param
+  input with a small "?" icon next to the label that shows the same text as a tooltip — the
+  user's explicit design preference ("je n'aime pas du tout les légendes en bas... des petites
+  infobulles"). New reusable `components/LabelHint.vue` (label + icon + tooltip) extracted since
+  this exact pattern is now used ~7 times across two views.
+- **Real input validation added** (a functional gap the user flagged, not just cosmetic): values
+  are clamped on the `change` event (i.e. once the user leaves the field) to Temperature 0–2,
+  Top P 0–1, Max tokens ≥ 1 rounded to an integer. The native `min`/`max` attributes on a number
+  input only constrain the little spinner buttons, not typed/pasted values, so out-of-range
+  numbers were previously accepted and sent straight to the provider.
+- Extended the same tooltip treatment across the rest of the UI, per the user's request to reuse
+  it broadly: the "↻ Refresh" model-list buttons (Playground + every Compare column) became icon
+  buttons (`RefreshCw`, spinning while `modelsLoading`) with a tooltip instead of a text button +
+  native `title`; Compare's remove-column "✕" button too. Added `LabelHint` explanations for
+  Provider, Model, System prompt, and User prompt in both views — Compare's per-column
+  Provider/Model selects previously had no label or explanation at all, just a bare placeholder.
+- `components/CopyButton.vue` converted from a text "Copy"/"Copied" button to an icon button
+  (`Copy` → `Check` while the "copied" flash is active), with the label text now living in the
+  tooltip — matches the new icon-first visual language everywhere else, per the user's request.
+- New `components/ResetButton.vue` (icon button, `Eraser`, tooltip "Clear this field", disabled
+  when the field is already empty) — added next to Copy on both System prompt and User prompt in
+  Playground and Compare, the user's request for a one-click way to blank a prompt field.
+- `npm run build` (vue-tsc + vite) clean. Verified live: killed and relaunched `tauri dev` twice
+  during this work (once mid-edit, showed a transient "Failed to resolve component: Label"
+  HMR warning from an in-between save state — expected, not a real bug, confirmed gone once the
+  edit finished; once more for a fully clean restart to confirm before reporting back). User
+  tested live and confirmed it looks right before requesting the commit.
 
 ## Known issues / incidents
 

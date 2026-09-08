@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
+import { Check, Copy } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Small reusable "Copy" affordance for a plain text value (prompts, etc.) — copies straight
 // from the JS string via the Clipboard API, so there's no risk of the rich-HTML-selection issue
@@ -20,7 +22,19 @@ async function copy() {
 </script>
 
 <template>
-  <Button variant="ghost" size="sm" class="h-auto px-1.5 py-0 text-xs" :disabled="!text" @click="copy">
-    {{ copied ? "Copied" : "Copy" }}
-  </Button>
+  <Tooltip>
+    <TooltipTrigger as-child>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        class="text-muted-foreground hover:text-foreground"
+        :disabled="!text"
+        @click="copy"
+      >
+        <Check v-if="copied" />
+        <Copy v-else />
+      </Button>
+    </TooltipTrigger>
+    <TooltipContent>{{ copied ? "Copied!" : "Copy" }}</TooltipContent>
+  </Tooltip>
 </template>

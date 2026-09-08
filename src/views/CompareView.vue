@@ -5,10 +5,10 @@ import { commands, type ProviderId } from "@/lib/bindings";
 import { useProvidersStore } from "@/stores/providers";
 import { usePromptDraftStore } from "@/stores/promptDraft";
 import { useCompareStore, type CompareColumn } from "@/stores/compare";
+import { CircleHelp, RefreshCw } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -16,9 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import GenerationParamsFields from "@/components/playground/GenerationParamsFields.vue";
 import ResultPanel from "@/components/playground/ResultPanel.vue";
 import CopyButton from "@/components/CopyButton.vue";
+import ResetButton from "@/components/ResetButton.vue";
+import LabelHint from "@/components/LabelHint.vue";
 
 // Side-by-side comparison: one Experiment, one Run per column. The shared system/user prompt
 // and params come from the same store Playground uses (see stores/promptDraft.ts) — Compare
@@ -163,8 +166,16 @@ async function rerunColumn(column: CompareColumn) {
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div class="flex flex-col gap-1.5">
           <div class="flex items-center justify-between">
-            <Label for="compare-system-prompt">System prompt</Label>
-            <CopyButton :text="systemPrompt" />
+            <LabelHint
+              field-id="compare-system-prompt"
+              hint="Instructions that set the assistant's behavior, tone, and constraints for this run."
+            >
+              System prompt
+            </LabelHint>
+            <div class="flex items-center gap-0.5">
+              <CopyButton :text="systemPrompt" />
+              <ResetButton :disabled="!systemPrompt" @click="systemPrompt = ''" />
+            </div>
           </div>
           <Textarea
             id="compare-system-prompt"
@@ -176,8 +187,13 @@ async function rerunColumn(column: CompareColumn) {
         </div>
         <div class="flex flex-col gap-1.5">
           <div class="flex items-center justify-between">
-            <Label for="compare-user-prompt">User prompt</Label>
-            <CopyButton :text="userPrompt" />
+            <LabelHint field-id="compare-user-prompt" hint="The actual message or question sent to the model.">
+              User prompt
+            </LabelHint>
+            <div class="flex items-center gap-0.5">
+              <CopyButton :text="userPrompt" />
+              <ResetButton :disabled="!userPrompt" @click="userPrompt = ''" />
+            </div>
           </div>
           <Textarea
             id="compare-user-prompt"
@@ -212,27 +228,42 @@ async function rerunColumn(column: CompareColumn) {
       <Card v-for="column in columns" :key="column.key" class="flex w-80 shrink-0 flex-col gap-3 p-3">
         <div class="flex items-start justify-between gap-2">
           <div class="flex flex-1 flex-col gap-2">
-            <Select
-              :model-value="column.provider"
-              @update:model-value="(value) => onProviderChange(column, value as ProviderId)"
-            >
-              <SelectTrigger class="text-[15px]">
-                <SelectValue placeholder="Provider" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="p in configuredProviders" :key="p.provider" :value="p.provider">
-                  {{ p.display_name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-
-            <div class="flex gap-1.5">
+            <div class="flex items-center gap-1">
               <Select
+                class="flex-1"
+                :model-value="column.provider"
+                @update:model-value="(value) => onProviderChange(column, value as ProviderId)"
+              >
+                <SelectTrigger class="w-full text-[15px]">
+                  <SelectValue placeholder="Provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="p in configuredProviders" :key="p.provider" :value="p.provider">
+                    {{ p.display_name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <button type="button" class="text-muted-foreground hover:text-foreground">
+                    <CircleHelp class="size-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  The API/company that will run the model: OpenAI, Anthropic, Google Gemini, Mistral, or
+                  OpenRouter.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <Select
+                class="flex-1"
                 :model-value="column.modelId"
                 :disabled="!column.provider || modelsLoadingForColumn(column)"
                 @update:model-value="(value) => (column.modelId = value as string)"
               >
-                <SelectTrigger class="text-[15px]">
+                <SelectTrigger class="w-full text-[15px]">
                   <SelectValue :placeholder="modelsLoadingForColumn(column) ? 'Loading models…' : 'Model'" />
                 </SelectTrigger>
                 <SelectContent>
@@ -241,30 +272,49 @@ async function rerunColumn(column: CompareColumn) {
                   </SelectItem>
                 </SelectContent>
               </Select>
-              <Button
-                variant="outline"
-                size="sm"
-                :disabled="!column.provider || modelsLoadingForColumn(column)"
-                title="Re-fetch the model list from the provider"
-                @click="refreshModelsForColumn(column)"
-              >
-                ↻
-              </Button>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    :disabled="!column.provider || modelsLoadingForColumn(column)"
+                    @click="refreshModelsForColumn(column)"
+                  >
+                    <RefreshCw class="size-3.5" :class="{ 'animate-spin': modelsLoadingForColumn(column) }" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Re-fetch the model list from the provider</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger as-child>
+                  <button type="button" class="text-muted-foreground hover:text-foreground">
+                    <CircleHelp class="size-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  The specific model to run. Newer/larger models are usually more capable but cost more per
+                  token.
+                </TooltipContent>
+              </Tooltip>
             </div>
             <p v-if="modelsErrorForColumn(column)" class="text-xs text-destructive">
               {{ modelsErrorForColumn(column) }}
             </p>
           </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            :disabled="columns.length <= 1"
-            title="Remove this column"
-            @click="removeColumn(column)"
-          >
-            ✕
-          </Button>
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                :disabled="columns.length <= 1"
+                @click="removeColumn(column)"
+              >
+                ✕
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Remove this column</TooltipContent>
+          </Tooltip>
         </div>
 
         <Button
