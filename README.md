@@ -24,6 +24,34 @@ a workflow engine — just a focused tool for testing and comparing prompts acro
 
 <img width="1422" height="898" alt="screenshot-2026-09-08_13-34-53" src="https://github.com/user-attachments/assets/c3db5cef-c94e-4170-a968-3e89ef37b4bd" />
 
+## Installation
+
+> No release has been tagged yet — the links below will 404 until then (see
+> [STATE.md](./STATE.md) for where things stand). Once one exists, this is how to get it.
+
+Grab the installer for your OS from the
+**[latest release](https://github.com/toorop/PromptRig/releases/latest)**.
+
+- **Windows**: download the `.exe`, double-click it, and follow the installer. First launch may
+  show a SmartScreen warning (the app isn't code-signed yet) — click "More info" → "Run anyway".
+- **macOS**: download the `.dmg`, open it, and drag PromptRig into Applications. First launch:
+  right-click the app → **Open** to get past the "unidentified developer" warning (only needed
+  once — also because it isn't code-signed yet).
+- **Linux**:
+  - Debian/Ubuntu and derivatives: download the `.deb` and install it (`sudo dpkg -i
+    PromptRig_*.deb`, or open it with your package manager's GUI).
+  - Fedora/openSUSE and derivatives: download the `.rpm` and install it with your package manager.
+  - **Any other distro, including Arch-based ones** (Arch, Manjaro, Omarchy, ...): there's no
+    native package yet, but the `.AppImage` works everywhere — no installation, no package
+    manager involved:
+    ```bash
+    chmod +x PromptRig_*.AppImage
+    ./PromptRig_*.AppImage
+    ```
+
+See [docs/release.md](./docs/release.md) for the full picture, including what's deliberately not
+done yet (code signing, a native Arch/AUR package, auto-update).
+
 ## Features
 
 - **Playground**: pick a provider + model, write a system/user prompt, tune the generation

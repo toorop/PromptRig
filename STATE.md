@@ -57,8 +57,16 @@ column for a long display name (e.g. an OpenRouter listing like "DeepSeek: DeepS
 0731 (batch)") — same root cause as the Step 9 vertical-scroll bug, a flex item's default
 `min-width: auto` refusing to shrink below its content's width. Fixed with `min-w-0` along the
 flex chain in both views. **Committed locally, not pushed** (same reasoning as the icon commit —
-user's call to skip the CI wait for a low-risk visual fix); `master` is currently ahead of
-`origin/master` by this one commit.
+user's call to skip the CI wait for a low-risk visual fix); `master` is ahead of
+`origin/master` by two commits now (this one + the one below).
+
+Then the user pointed out `README.md` still had no actual **end-user install instructions**
+(only a dev setup section) — added an "Installation" section: a link to GitHub's
+`/releases/latest`, plus a condensed per-OS quick-start (Windows `.exe`, macOS `.dmg`, Linux
+`.deb`/`.rpm`/AppImage), pointing to `docs/release.md` for the full detail. Explicitly flagged
+inline that the release link 404s for now, since no version has actually been tagged yet.
+Committed locally, also not pushed (no functional reason to — nobody's editing this file via
+GitHub the way the screenshots needed pushing to work).
 
 Remaining before a real tagged release: the user's icon touch-ups (their own Photoshop pass, not
 blocking) and whatever else surfaces from a final review — otherwise the natural next action is

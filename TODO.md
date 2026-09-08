@@ -213,6 +213,14 @@ which were never actually set up despite being in the original architecture plan
   features list (marked what's actually shipped vs. the still-unimplemented generic
   OpenAI-compatible endpoint), tech stack (added Pinia/specta/tauri-specta), and removed every
   "(once written)" doc link now that they all exist.
+  - Two screenshots (Playground, Compare) added by the user directly via GitHub's web editor
+    (drag-and-drop) — pulled in locally.
+  - Follow-up, same day: the user pointed out the first pass had no actual **end-user install
+    instructions** (only a dev setup section). Added an "Installation" section — a link to
+    GitHub's `/releases/latest` plus a condensed per-OS quick-start (Windows `.exe`, macOS
+    `.dmg`, Linux `.deb`/`.rpm`/AppImage-for-everything-else), pointing to `docs/release.md` for
+    the full detail. Flagged inline that the link 404s until a release is actually tagged, since
+    none exists yet.
 - [x] `docs/development.md` — prerequisites per OS (Linux system packages, the NVIDIA/Wayland
   `WEBKIT_DISABLE_DMABUF_RENDERER=1` workaround, Windows/macOS build tools), running the app,
   the exact verification commands CI runs (so a contributor can catch a red CI run locally
