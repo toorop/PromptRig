@@ -393,3 +393,48 @@ dernier prompt système et le dernier user prompt." User confirmed working after
 restart. Distinct from the "saved prompt sets" idea above, which is still not built — that's an
 explicit named archive of multiple saved prompts, this is just not losing your current
 in-progress draft.
+
+### Searchable/filterable model picker — from a brainstorm with a developer friend testing the app, 2026-09-08
+
+The model `Select` (Playground and each Compare column) is a plain dropdown list — fine for a
+handful of models, unusable for OpenRouter's ~400+ entries. Add a search input inside the
+dropdown that filters the visible options live as you type (e.g. typing part of a name narrows
+the list down immediately) — a standard "combobox" pattern rather than a plain `<Select>`.
+Likely needs a different underlying component (reka-ui/shadcn-vue has a `Combobox` primitive
+built for exactly this, unlike the plain `Select` used everywhere today) — check what that
+migration involves before starting, since it'd touch every provider/model picker in the app.
+
+### Remember window size across restarts — from the same brainstorm, 2026-09-08
+
+On a traditional (non-tiling) window manager/OS — Windows, macOS, a classic Linux DE — reopening
+the app should restore the window size it had when last closed, instead of always starting at
+`tauri.conf.json`'s fixed `800×600`. Not meaningfully testable on the user's own setup (Hyprland,
+a tiling WM that manages window sizes itself), but relevant for Windows/macOS/traditional-DE
+Linux users — including the developer friends actually testing this. Tauri has a
+`tauri-plugin-window-state` plugin built specifically for this (persists and restores
+size/position/maximized-state automatically) — check its current API before hand-rolling
+anything with `getCurrentWindow()`'s resize APIs and `localStorage`/a settings file.
+
+### Slightly larger top-nav font — from the same brainstorm, 2026-09-08
+
+Distinct from the already-tracked "Select/Input control font size in the toolbars" item above
+(that one is the Provider/Model/param controls) — this is specifically `App.vue`'s top nav bar
+text (the Playground/Compare/Settings links + "PromptRig" wordmark, currently `text-sm`), which
+the user separately finds a touch small. Likely low-effort whenever it's picked up. The user
+has repeated twice now that they may just do this kind of pixel-level sizing tweak themselves —
+don't start without asking.
+
+### Pin a Compare column so "Run all" skips it — from the same brainstorm, 2026-09-08
+
+In Compare, once a column's result looks good, let the user "pin" it: it's excluded from the
+next "Run all" (keeps its existing result instead of being re-run and re-billed) while other
+columns can still be freely added/removed/re-run around it. The workflow this supports: find one
+good model, pin it as a fixed reference point, then keep swapping out the other columns to test
+alternatives against it without paying to re-run the one you already like. Needs a `pinned:
+boolean` (or similar) on `CompareColumn` (`stores/compare.ts`), a pin toggle in the column's UI
+(near the existing "✕ remove"/"Rerun" controls), and `runAll()`
+(`commands::experiments::run_experiment` / the frontend loop that builds `RunExperimentInput`)
+skipping pinned columns — likely still wants those columns' existing `Run` included in the
+`Experiment` conceptually, just not re-executed, so check how that interacts with
+`run_experiment` always creating a fresh `Experiment` today (a pinned column's *old* Run belongs
+to a *previous* Experiment — worth deciding whether that matters before implementing).
