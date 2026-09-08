@@ -153,8 +153,40 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 
 ## Step 10 — CI/CD
 
-- [ ] `.github/workflows/ci.yml`: eslint, vue-tsc, frontend tests, `cargo fmt --check`, `cargo clippy`, `cargo test`, `tauri build` dry run
-- [ ] `.github/workflows/release.yml`: triggered on tag push, `tauri-action` matrix (Linux x86_64, Windows x86_64, macOS arm64 + x64), publish to GitHub Release
+Before writing any workflow, walked the user through how this actually plays out for an end
+user (installers vs. raw binaries, versioning, whether auto-update is in scope) since they
+explicitly asked to understand the process, not just get files dropped in. Decisions made:
+**no code signing yet** (unsigned installers, OS shows a warning on first launch — revisit once
+there's real user demand), **no native Arch/AUR package yet** (Arch-based users use the
+`.AppImage` — Tauri's bundler doesn't produce a `pacman` package natively; documented as the
+workaround, logged as a deferred idea for a real AUR package later), and **CI frontend checks
+limited to what already exists** (`vue-tsc` + build) rather than retrofitting ESLint/Vitest,
+which were never actually set up despite being in the original architecture plan.
+
+- [x] `.github/workflows/ci.yml`: 3 jobs — frontend (`npm run build`, i.e. `vue-tsc` + Vite),
+  Rust (`cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, with the
+  WebKitGTK system packages Tauri needs even just to compile), and a `version-consistency` job
+  that fails if `package.json`/`Cargo.toml`/`tauri.conf.json`'s version strings ever drift apart.
+  All three checks verified locally before committing (`cargo fmt --check`, `cargo clippy
+  --all-targets -- -D warnings` — a stricter gate than previously used locally, passes clean with
+  0 warnings —, `cargo test` — 36 passed, 1 ignored —, and the version-check shell logic run
+  directly). No `eslint`/frontend-test job (see above) and no full `tauri build` dry run on every
+  push (kept CI fast; full bundling only happens in `release.yml`, on an actual version tag).
+- [x] `.github/workflows/release.yml`: triggered on pushing a `v*.*.*` tag. `tauri-apps/tauri-action@v1`
+  matrix: macOS (`aarch64-apple-darwin` + `x86_64-apple-darwin`, separate matrix entries),
+  `ubuntu-22.04` (not `-latest` — deliberately the oldest supported LTS, so the built
+  `.deb`/`.rpm`/`.AppImage` don't link against a glibc newer than what many users' systems have),
+  `windows-latest`. Creates a **draft** GitHub Release (`releaseDraft: true`) with every
+  platform's installer attached — a human still reviews and publishes it manually, nothing goes
+  live automatically. Verified via `python3 -c "import yaml; yaml.safe_load(...)"` (syntax only —
+  actually exercising this workflow needs a real tag push, not done yet since there's no version
+  worth releasing so far).
+- [x] `docs/release.md` — written now rather than deferred to Step 11, since the versioning/tagging
+  process it documents is exactly what this step needed to define. Covers: the 3-file version
+  bump + tag procedure, what CI/release automatically do, per-OS install instructions for end
+  users (including the AppImage workaround for Arch-based distros, called out explicitly since
+  the user runs Omarchy), and an explicit "not yet done" section (code signing, Arch/AUR package,
+  auto-update) so it's clear these are deliberate omissions, not oversights.
 
 ## Step 11 — Documentation
 
@@ -162,7 +194,7 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 - [ ] `docs/development.md` (Linux/Windows/macOS setup)
 - [ ] `docs/architecture.md`
 - [ ] `docs/adding-a-provider.md`
-- [ ] `docs/release.md`
+- [x] `docs/release.md` — written in Step 10 (see above), ahead of the rest of this step
 - [ ] Confirm `TODO.md`/`STATE.md` reflect actual project state
 
 ## Deferred ideas (not scheduled — don't start early)
@@ -243,13 +275,12 @@ UI flow). The user re-raised it independently after using the tool for a while, 
 signal it's a real want, not just a spec artifact — but per the spec's own instructions, still
 explicitly deferred past the MVP.
 
-### App versioning strategy — user idea, 2026-09-08
+### App versioning strategy — user idea, 2026-09-08 (resolved in Step 10, 2026-09-08)
 
-No versioning scheme decided yet (what "0.1.0" means, when/how it bumps, relationship to git
-tags). Ties directly into Step 10's release process (`.github/workflows/release.yml` triggers
-on a tag push) — needs a decision on semver discipline and where the version number is bumped
-(`package.json` + `src-tauri/Cargo.toml` + `tauri.conf.json` all currently say `0.1.0`
-independently; decide whether/how to keep them in sync) before Step 10 is built out for real.
+**Resolved**: semver, `src-tauri/Cargo.toml` as the source of truth, `package.json`/
+`tauri.conf.json` kept in sync by hand and checked by CI's `version-consistency` job. Full
+procedure documented in `docs/release.md`. Kept here for history; see Step 10 above and
+`docs/release.md` for the actual decision.
 
 ### Auto-update mechanism — user idea, 2026-09-08
 
@@ -257,9 +288,20 @@ Something like Electron's auto-updater, so installed users get new versions with
 re-downloading. This is exactly docs/start.md's own line: "Prépare la structure de façon à
 pouvoir ajouter ultérieurement la signature des binaires et l'auto-update" — already anticipated
 in the original spec as a Step-10-adjacent follow-up, not MVP. Concretely: Tauri has an official
-`tauri-plugin-updater` for this, which needs signed release artifacts and a hosted update
-manifest (`latest.json`, typically published alongside GitHub Release artifacts) — depends on
-Step 10's release pipeline existing first, and on deciding the versioning strategy above.
+`tauri-plugin-updater` for this, which needs signed release artifacts (code signing explicitly
+deferred, see Step 10/`docs/release.md`) and a hosted update manifest (`latest.json`, typically
+published alongside GitHub Release artifacts) — depends on Step 10's release pipeline existing
+(it now does) and on code signing actually happening first.
+
+### Native Arch Linux / AUR package — user idea, 2026-09-08
+
+The user runs Omarchy (an Arch-based distro) and can't use the `.deb`/`.rpm` Tauri produces.
+Tauri's bundler has no built-in `pacman`/AUR target (only `.deb`, `.rpm`, `.AppImage` for
+Linux) — a proper Arch package would mean hand-maintaining a PKGBUILD (typically a `-bin`
+variant wrapping the GitHub Release binary/AppImage) and publishing it to `aur.archlinux.org`,
+which needs its own AUR maintainer account/SSH setup. Explicitly deferred: the `.AppImage`
+(portable, no install, works on any distro including Arch-based ones) is an acceptable interim
+solution and is documented as such in `docs/release.md`.
 
 ### Persist the current prompt draft across app restarts — user idea, 2026-09-08
 

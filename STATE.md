@@ -10,12 +10,19 @@ approved by the user.
 
 ## Current step
 
-Step 9 (UI polish), in progress, 2026-09-08. Self-hosted typography, the light/dark theme toggle
-(dark by default), a pass of real tooltips + param validation, the whole-window-scroll fix, and
-now a frameless window with a custom close button (see below) are done, committed, and pushed.
-Currently mid-iteration on Select/Input toolbar font sizing, which the user has taken over by
-hand (see TODO.md) — don't touch those classes without being asked. Otherwise nothing specific
-queued for the next UI item; ask what's next.
+Step 9 (UI polish) is done as of 2026-09-08 — the user explicitly signed off ("pour moi c'est
+correct... on peut considérer le point 9 pour l'instant fait"), with two known-open items left
+on purpose: light-theme contrast (still unresolved, kept open per the user's explicit choice —
+see TODO.md) and Select/Input toolbar font sizing (the user is hand-tuning it themselves).
+
+Now in Step 10 (CI/CD), 2026-09-08. `ci.yml` and `release.yml` are both written, verified
+locally (YAML syntax + every check they run), committed, and pushed — see below for the full
+decision trail (no code signing yet, no Arch/AUR package yet, CI frontend checks limited to
+what already exists). `docs/release.md` was written ahead of Step 11 since it documents exactly
+the process this step needed to define. **Not yet tested for real**: `release.yml` has never
+actually run, since doing so requires pushing a real `v*.*.*` tag — there's no version worth
+releasing yet. Next natural step: keep going on Step 10/11, or the user may want to actually cut
+a first tagged release to prove the pipeline end-to-end — ask which.
 
 ## Done so far
 
@@ -569,7 +576,7 @@ queued for the next UI item; ask what's next.
   (not HMR) at each step, given the dev-server-vs-build CSS-ordering discrepancy found along the
   way; user confirmed the final version works ("c'est parfait") before requesting the commit.
 
-**Step 9 (in progress) — frameless window** (committed & pushed):
+**Step 9 (closed) — frameless window** (committed & pushed):
 - User's idea, described as "headless" (they were thinking of Electron's terminology) — remove
   the native OS title bar (app name + close/minimize/maximize) for a cleaner look. Confirmed
   before implementing (per the user's explicit request not to act until validated) that this is
@@ -594,6 +601,60 @@ queued for the next UI item; ask what's next.
   window manager), where free-floating drag doesn't apply the same way it would under a
   traditional floating WM/DE — not a bug, just not meaningfully testable on that setup. User's
   verdict on the visual result: "beaucoup plus beau."
+- **Step 9 closed by the user's explicit sign-off**: "pour moi c'est correct... on peut
+  considérer le point 9 pour l'instant fait." Also caught and fixed a real TODO.md bookkeeping
+  gap during this closing conversation: "Revisit contrast" had never actually been done (only
+  dark becoming the default was done — the light theme's own colors were never retouched since
+  Step 6); asked the user how to treat it rather than assuming, and they chose to leave it open
+  for a future pass rather than mark it done.
+
+**Step 10 (in progress) — CI/CD** (committed & pushed):
+- Before writing anything, walked the user through how Tauri's bundler actually behaves, since
+  they explicitly asked to understand the process rather than just receive files: yes, `tauri
+  build`/`tauri-action` produce real native installers (`.deb`/`.rpm`/`.AppImage` on Linux,
+  NSIS `.exe` on Windows, `.dmg` on macOS), not raw binaries end users have to figure out
+  themselves — with the caveat that unsigned installers show an OS security warning on first
+  launch. This surfaced three decisions to settle before implementing (each confirmed with the
+  user rather than assumed):
+  1. **No code signing yet** — needs paid certificates (Apple Developer, Windows), deferred
+     until there's real user demand to justify it.
+  2. **No native Arch/AUR package** — the user runs Omarchy (Arch-based) and can't use the
+     `.deb`/`.rpm`; Tauri's bundler has no `pacman` target at all. Agreed the `.AppImage`
+     (works on any distro, no install) is an acceptable interim solution, documented as such;
+     a real AUR package logged as a deferred idea (TODO.md).
+  3. **CI frontend checks limited to what already exists** — discovered while planning that the
+     original architecture plan's "eslint, vue-tsc, frontend tests" assumed tooling (ESLint,
+     Vitest) that was never actually set up in this project (no config, no test files). Asked
+     the user rather than silently either skipping it or bolting on new tooling/tests just to
+     fill out a CI step; they chose to keep CI to what's real (`vue-tsc` + build) and treat
+     ESLint/Vitest as a separate future addition if it's ever actually needed.
+- `.github/workflows/ci.yml`: 3 jobs on every push/PR to `master` — `frontend` (`npm run build`),
+  `rust` (`cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test`, with
+  the WebKitGTK system packages Tauri needs even to compile), `version-consistency` (fails if
+  `package.json`/`Cargo.toml`/`tauri.conf.json`'s version strings don't all match). Every check
+  it runs was verified locally first: `cargo fmt --check` clean, `cargo clippy --all-targets -- -D
+  warnings` clean (0 warnings — stricter than the plain `cargo clippy --all-targets` used so far
+  in this project, and it still passed outright), `cargo test` 36 passed/1 ignored, and the
+  version-check shell logic run directly against the repo's current (matching) versions.
+- `.github/workflows/release.yml`: triggered by pushing a `v*.*.*` tag. `tauri-apps/tauri-action@v1`
+  matrix — macOS (`aarch64-apple-darwin` + `x86_64-apple-darwin` as separate matrix entries),
+  `ubuntu-22.04` (deliberately not `-latest`: an older LTS keeps the built Linux binaries'
+  glibc-version requirement low enough to run on more users' systems), `windows-latest`. Verified
+  the exact current recommended `tauri-action` syntax via the official Tauri v2 docs
+  (`v2.tauri.app/distribute/pipelines/github/`) rather than relying on possibly-stale training
+  knowledge, given this is exactly the kind of fast-moving tooling detail the project's own
+  working method calls for double-checking. Publishes a **draft** GitHub Release (human reviews
+  and publishes manually — nothing goes live automatically). No signing secrets configured
+  (matches the "no code signing yet" decision above). YAML syntax verified with a Python
+  `yaml.safe_load` check; **the workflow itself has never actually run** — that needs a real
+  tag push, and there's no version worth releasing yet.
+- `docs/release.md` — written now (pulled forward from Step 11, since this step needed the
+  process defined anyway): the 3-file version-bump-then-tag procedure, what CI/release do
+  automatically, per-OS install instructions for end users (explicitly including the AppImage
+  workaround for Arch-based distros), and a "Not yet done" section calling out code signing,
+  the Arch/AUR package, and auto-update as deliberate omissions.
+- TODO.md's "App versioning strategy" deferred idea marked resolved (pointing at this step and
+  `docs/release.md`); a new "Native Arch Linux / AUR package" deferred idea added.
 
 ## Known issues / incidents
 

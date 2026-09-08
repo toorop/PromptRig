@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  frontend:
+    name: Frontend (typecheck + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      # Runs vue-tsc against the generated Tauri bindings, then the Vite build.
+      - run: npm run build
+
+  rust:
+    name: Rust (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Tauri links against WebKitGTK even for `cargo check`/`test` (not just full bundling),
+      # so these system packages are needed before any cargo command runs.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: cargo fmt --check
+        working-directory: src-tauri
+        run: cargo fmt --check
+      - name: cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+      - name: cargo test
+        working-directory: src-tauri
+        run: cargo test
+
+  version-consistency:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # package.json, src-tauri/Cargo.toml, and src-tauri/tauri.conf.json each carry their own
+      # version string with nothing enforcing they stay in sync — this is the safety net until
+      # (or instead of) a script that propagates one source of truth automatically.
+      - name: Check versions match across package.json / Cargo.toml / tauri.conf.json
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          CARGO_VERSION=$(grep -m1 '^version' src-tauri/Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          TAURI_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          echo "package.json:     $PKG_VERSION"
+          echo "Cargo.toml:       $CARGO_VERSION"
+          echo "tauri.conf.json:  $TAURI_VERSION"
+          if [ "$PKG_VERSION" != "$CARGO_VERSION" ] || [ "$PKG_VERSION" != "$TAURI_VERSION" ]; then
+            echo "::error::Version mismatch across package.json/Cargo.toml/tauri.conf.json"
+            exit 1
+          fi
