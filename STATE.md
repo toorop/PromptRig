@@ -127,6 +127,27 @@ Remaining before the user publishes: whatever else surfaces from their own/frien
 (two real bugs found so far — NVIDIA/Wayland Linux crash, unsigned macOS Gatekeeper message),
 and their planned icon touch-ups (not blocking).
 
+A Mac Silicon friend confirmed the app works well and looks good after the Gatekeeper fix, and a
+brainstorm with them produced 4 more ideas, logged in TODO.md's Deferred ideas (none started
+except the first, below): a searchable/filterable model picker, remembering window size across
+restarts, a slightly larger top-nav font, and pinning a Compare column so "Run all" skips it.
+Decided (discussed directly with the user) to keep tracking ideas in TODO.md rather than switch
+to GitHub Issues, at least until external testers want to file things themselves.
+
+**Searchable model picker + per-model pricing, implemented 2026-09-08** (committed & pushed) —
+see TODO.md's "Searchable/filterable model picker with per-model pricing" entry for the full
+design (new `ModelCombobox.vue`, new `ModelInfo.pricing` field, `pricing::resolve_rate` shared
+resolver). Went through one live-feedback iteration: the rate first sat beside the model name
+and visibly stole its width (screenshot showed long OpenRouter names truncated harder than
+before pricing existed) — fixed by stacking the rate below the name instead (name now owns the
+full row width and wraps rather than truncating) and dropping the "per 1M" suffix. User's
+verdict on the result: "Magnifique!"
+
+Also in this stretch: the user hand-edited `App.vue`'s top-nav font size themselves (as
+predicted) — nav links `text-[15px]`, wordmark `text-[16px]` — after confirming with them that
+Tailwind has no named step between `text-sm`/14px and `text-base`/16px, only the arbitrary-value
+syntax. That TODO item is now resolved.
+
 ## Done so far
 
 **Step 0 — Bootstrap** (committed & pushed):

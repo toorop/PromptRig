@@ -180,6 +180,7 @@ impl LlmProvider for AnthropicProvider {
                 // A context window of 0 shows up in some API examples as a placeholder for
                 // "unknown" rather than a real limit — treat it the same as absent.
                 context_window: listing.max_input_tokens.filter(|&n| n > 0),
+                pricing: None,
             })
             .collect();
 

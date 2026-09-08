@@ -85,6 +85,14 @@ impl PricingTable {
         Ok(Self { prices })
     }
 
+    /// The raw per-million-token rate for (provider, model), or `None` if it isn't in the
+    /// table. Exposed (crate-internal) so `resolve_rate` can share it with the OpenRouter
+    /// fallback lookups, and so a rate can be shown in the UI before any usage exists to turn
+    /// it into an actual cost (see `ModelInfo::pricing`).
+    pub(crate) fn lookup(&self, provider: ProviderId, model_id: &str) -> Option<ModelPrice> {
+        self.prices.get(&(provider, model_id.to_string())).copied()
+    }
+
     /// Estimated cost in USD for a completed Run, or `None` if this (provider, model) isn't in
     /// the table.
     pub fn estimate_cost(
@@ -93,9 +101,38 @@ impl PricingTable {
         model_id: &str,
         usage: &Usage,
     ) -> Option<f64> {
-        let price = self.prices.get(&(provider, model_id.to_string()))?;
-        Some(price.cost(usage))
+        self.lookup(provider, model_id)
+            .map(|price| price.cost(usage))
     }
+}
+
+/// Resolves the best available per-token rate for (provider, model), trying our own
+/// hand-curated table first, then — for OpenRouter itself — its own real price, then — for
+/// every other provider — the cross-provider approximation. Returns the rate plus whether it's
+/// an estimate. Shared by `commands::build_new_run` (multiplies by real usage to get a cost)
+/// and `commands::providers::list_models` (shows the bare rate before anything has run) so the
+/// resolution order lives in exactly one place.
+pub(crate) async fn resolve_rate(
+    provider: ProviderId,
+    model_id: &str,
+    table: &PricingTable,
+    openrouter: &OpenRouterPricingCache,
+) -> Option<(ModelPrice, bool)> {
+    if let Some(price) = table.lookup(provider, model_id) {
+        return Some((price, false));
+    }
+
+    if provider == ProviderId::OpenRouter {
+        return openrouter
+            .lookup_for_openrouter(model_id)
+            .await
+            .map(|price| (price, false));
+    }
+
+    openrouter
+        .lookup_fallback(provider, model_id)
+        .await
+        .map(|price| (price, true))
 }
 
 #[cfg(test)]

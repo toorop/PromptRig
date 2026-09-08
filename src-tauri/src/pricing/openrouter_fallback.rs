@@ -84,27 +84,43 @@ impl OpenRouterPricingCache {
     /// Real cost for a Run that itself used the OpenRouter provider — exact, since this *is*
     /// OpenRouter's own price for that model, not a stand-in for someone else's.
     pub async fn estimate_for_openrouter(&self, model_id: &str, usage: &Usage) -> Option<f64> {
-        self.with_loaded(|data| {
-            data.openrouter_exact
-                .get(model_id)
-                .map(|price| price.cost(usage))
-        })
-        .await
+        self.lookup_for_openrouter(model_id)
+            .await
+            .map(|price| price.cost(usage))
     }
 
     /// Approximate cost for a Run against a *different* provider, derived from whichever
     /// OpenRouter listing looks like the same model. Always an estimate (see module docs).
-    ///
-    /// Tries an exact (date-normalized) match first; if `model_id` is a rolling `-latest` alias
-    /// (e.g. Mistral's `ministral-3b-latest`) that didn't match anything directly — OpenRouter
-    /// itself only lists dated snapshots like `ministral-3b-2512`, no bare `-latest` entry —
-    /// falls back to whichever dated snapshot for that same base name looks newest.
     pub async fn estimate_fallback(
         &self,
         provider: ProviderId,
         model_id: &str,
         usage: &Usage,
     ) -> Option<f64> {
+        self.lookup_fallback(provider, model_id)
+            .await
+            .map(|price| price.cost(usage))
+    }
+
+    /// OpenRouter's own real rate for one of its own listings — the raw counterpart to
+    /// `estimate_for_openrouter`, used when only the rate (not a cost) is needed, e.g. to show
+    /// in the model picker before anything has run.
+    pub(crate) async fn lookup_for_openrouter(&self, model_id: &str) -> Option<ModelPrice> {
+        self.with_loaded(|data| data.openrouter_exact.get(model_id).copied())
+            .await
+    }
+
+    /// The cross-provider approximate rate — the raw counterpart to `estimate_fallback`.
+    ///
+    /// Tries an exact (date-normalized) match first; if `model_id` is a rolling `-latest` alias
+    /// (e.g. Mistral's `ministral-3b-latest`) that didn't match anything directly — OpenRouter
+    /// itself only lists dated snapshots like `ministral-3b-2512`, no bare `-latest` entry —
+    /// falls back to whichever dated snapshot for that same base name looks newest.
+    pub(crate) async fn lookup_fallback(
+        &self,
+        provider: ProviderId,
+        model_id: &str,
+    ) -> Option<ModelPrice> {
         let exact_key = (provider, normalize_model_id(model_id));
         let latest_key =
             strip_latest_alias(model_id).map(|base| (provider, normalize_model_id(base)));
@@ -117,7 +133,7 @@ impl OpenRouterPricingCache {
                         .as_ref()
                         .and_then(|key| data.latest_by_provider.get(key))
                 })
-                .map(|price| price.cost(usage))
+                .copied()
         })
         .await
     }

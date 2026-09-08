@@ -14,6 +14,6 @@ pub mod run;
 
 pub use error::{AppError, AppResult};
 pub use experiment::{Experiment, ExperimentId};
-pub use model::{GenerationParams, ModelCapabilities, ModelInfo};
+pub use model::{GenerationParams, ModelCapabilities, ModelInfo, ModelPricing};
 pub use provider::ProviderId;
 pub use run::{Run, RunId, RunResult, Usage};

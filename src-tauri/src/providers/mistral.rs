@@ -179,6 +179,7 @@ impl LlmProvider for MistralProvider {
                     supports_streaming: true,
                 },
                 context_window: listing.max_context_length,
+                pricing: None,
             })
             .collect();
 

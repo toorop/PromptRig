@@ -394,15 +394,46 @@ restart. Distinct from the "saved prompt sets" idea above, which is still not bu
 explicit named archive of multiple saved prompts, this is just not losing your current
 in-progress draft.
 
-### Searchable/filterable model picker — from a brainstorm with a developer friend testing the app, 2026-09-08
+### Searchable/filterable model picker with per-model pricing — implemented 2026-09-08
 
-The model `Select` (Playground and each Compare column) is a plain dropdown list — fine for a
-handful of models, unusable for OpenRouter's ~400+ entries. Add a search input inside the
-dropdown that filters the visible options live as you type (e.g. typing part of a name narrows
-the list down immediately) — a standard "combobox" pattern rather than a plain `<Select>`.
-Likely needs a different underlying component (reka-ui/shadcn-vue has a `Combobox` primitive
-built for exactly this, unlike the plain `Select` used everywhere today) — check what that
-migration involves before starting, since it'd touch every provider/model picker in the app.
+**Implemented**, combining this idea with a second one the user raised in the same conversation
+("dans le Select, une fois déplié, [...] le tarif approximatif de chaque modèle" — a per-model
+rate shown in the dropdown, in a smaller font).
+
+- New `src/components/playground/ModelCombobox.vue` (Popover + Command from shadcn-vue —
+  there's no standalone "Combobox" component in the registry, it's the standard recipe built
+  from those two primitives) replaces the plain `<Select>` for the **model** picker only, in
+  both `PlaygroundView.vue` and `CompareView.vue`. The **provider** picker stays a plain
+  `<Select>` (5-6 items, no need for search). Typing in the search box filters the list live via
+  `Command`'s built-in fuzzy-contains matching.
+- Backend: `ModelInfo` gained a new `pricing: Option<ModelPricing>` field
+  (`input_per_million_usd`/`output_per_million_usd`/`is_estimate`) — a *rate* for display, not a
+  computed cost (no token usage exists yet at picker time, unlike `Run.estimated_cost_usd`).
+  Filled in by `commands::providers::list_models` (provider modules themselves stay unaware
+  pricing exists), reusing the exact same resolution order as Run cost estimation via a new
+  shared `pricing::resolve_rate` (refactored out of `build_new_run` and
+  `OpenRouterPricingCache::estimate_for_openrouter`/`estimate_fallback`, which are now thin
+  wrappers around new `lookup_for_openrouter`/`lookup_fallback` methods — no duplicated
+  exact-then-fallback logic between "compute a cost" and "show a rate").
+- **UI iteration from live feedback**: the first version put the rate to the right of the model
+  name on the same line, which visibly ate into the name's available width and caused more
+  truncation than before pricing existed (confirmed via a screenshot — long OpenRouter names
+  like "DeepSeek: DeepSeek V3.2 Exp (free)" were cut down to "DeepSeek: Deep..."). Fixed by
+  stacking the rate *below* the name instead of beside it (name gets the full row width and
+  wraps instead of truncating — the user was explicit that showing the complete name is a hard
+  requirement) and widening the popover (`w-80` → `w-96`). Also dropped the "per 1M" suffix
+  (user: not useful, just take up space) — the rate reads as compact `$X.XX/$Y.YY`.
+- Adding `command`/`popover` via the shadcn-vue CLI re-triggered the same Google Fonts CDN
+  regression seen before with `tooltip` — stripped each time it reappeared (3 times, across
+  `command`, `input-group`, and `dialog` — the latter two are real transitive dependencies of
+  `command`'s barrel export, not bloat, even though they looked unrelated to a model picker at
+  first glance).
+- `cargo check`/`clippy --all-targets -- -D warnings`/`fmt --check`/`test` (44 passing, unchanged
+  count — pure refactor + additive change, no new backend tests added for the enrichment path
+  itself) all clean. `npm run build` clean (one real TS issue caught: specta exports every bare
+  `f64` as `number | null`, even non-`Option` ones, since NaN/Infinity have no JSON
+  representation — not something `Option`-wrapping the Rust field would have changed). Verified
+  live via `tauri dev` restarts at each iteration; user confirmed the final result ("Magnifique!").
 
 ### Remember window size across restarts — from the same brainstorm, 2026-09-08
 

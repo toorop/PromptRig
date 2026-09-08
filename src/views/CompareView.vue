@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import GenerationParamsFields from "@/components/playground/GenerationParamsFields.vue";
+import ModelCombobox from "@/components/playground/ModelCombobox.vue";
 import ResultPanel from "@/components/playground/ResultPanel.vue";
 import CopyButton from "@/components/CopyButton.vue";
 import ResetButton from "@/components/ResetButton.vue";
@@ -256,20 +257,15 @@ async function rerunColumn(column: CompareColumn) {
             </div>
 
             <div class="flex min-w-0 items-center gap-1.5">
-              <Select
-                :model-value="column.modelId"
+              <ModelCombobox
+                :model-id="column.modelId"
+                :models="modelsForColumn(column)"
                 :disabled="!column.provider || modelsLoadingForColumn(column)"
-                @update:model-value="(value) => (column.modelId = value as string)"
-              >
-                <SelectTrigger class="min-w-0 flex-1 text-[15px]">
-                  <SelectValue :placeholder="modelsLoadingForColumn(column) ? 'Loading models…' : 'Model'" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="m in modelsForColumn(column)" :key="m.model_id" :value="m.model_id">
-                    {{ m.display_name }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+                :loading="modelsLoadingForColumn(column)"
+                placeholder="Model"
+                class="flex-1 text-[15px]"
+                @update:model-id="(value) => (column.modelId = value)"
+              />
               <Tooltip>
                 <TooltipTrigger as-child>
                   <Button

@@ -226,6 +226,7 @@ impl LlmProvider for OpenAiProvider {
                 model_id: id,
                 // OpenAI's model list doesn't include context window sizes.
                 context_window: None,
+                pricing: None,
             })
             .collect();
 

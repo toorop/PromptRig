@@ -9,6 +9,13 @@ export const commands = {
 	hasApiKey: (provider: ProviderId) => typedError<boolean, AppError>(__TAURI_INVOKE("has_api_key", { provider })),
 	listProviders: () => typedError<ProviderStatus[], AppError>(__TAURI_INVOKE("list_providers")),
 	testProviderConnection: (provider: ProviderId) => typedError<null, AppError>(__TAURI_INVOKE("test_provider_connection", { provider })),
+	/**
+	 *  Beyond just listing what a provider offers, this also fills in each model's `pricing` field
+	 *  (a rate to show in the picker, not a computed cost — see `ModelInfo::pricing`) so the
+	 *  frontend never needs its own copy of the exact-then-approximate pricing resolution logic.
+	 *  Providers themselves stay unaware pricing exists at all — this enrichment happens here, at
+	 *  the command boundary, same separation as `Run`'s cost estimation in `build_new_run`.
+	 */
 	listModels: (provider: ProviderId) => typedError<ModelInfo[], AppError>(__TAURI_INVOKE("list_models", { provider })),
 	runGeneration: (input: RunGenerationInput) => typedError<Run_Serialize, AppError>(__TAURI_INVOKE("run_generation", { input })),
 	runExperiment: (input: RunExperimentInput) => typedError<RunExperimentResult_Serialize, AppError>(__TAURI_INVOKE("run_experiment", { input })),
@@ -136,6 +143,30 @@ export type ModelInfo = {
 	capabilities: ModelCapabilities,
 	/**  Context window size in tokens, when known. */
 	context_window: number | null,
+	/**
+	 *  A per-token rate, shown next to the model in the picker so the cost of a choice is
+	 *  visible *before* running anything — unlike `Run.estimated_cost_usd`, which only exists
+	 *  once a Run has real token usage to multiply against. Filled in by
+	 *  `commands::providers::list_models` (see `pricing::resolve_rate`), not by the provider
+	 *  modules themselves — `providers::*::list_models()` stays unaware of pricing entirely,
+	 *  same separation as `Run`'s own cost estimation.
+	 */
+	pricing: ModelPricing | null,
+};
+
+/**
+ *  A per-million-token rate for display, not a computed cost (see `ModelInfo::pricing`) —
+ *  compare `pricing::ModelPrice`, the internal type this is built from, and `Run.cost_is_estimate`,
+ *  which the `is_estimate` field here mirrors.
+ */
+export type ModelPricing = {
+	input_per_million_usd: number | null,
+	output_per_million_usd: number | null,
+	/**
+	 *  `true` when this rate came from the OpenRouter cross-provider approximation rather than
+	 *  our own hand-curated `pricing.json` or OpenRouter's own real price for its own models.
+	 */
+	is_estimate: boolean,
 };
 
 /**

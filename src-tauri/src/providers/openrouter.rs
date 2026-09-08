@@ -184,6 +184,7 @@ impl LlmProvider for OpenRouterProvider {
                 display_name: listing.name,
                 model_id: listing.id,
                 context_window: listing.context_length,
+                pricing: None,
             })
             .collect();
 

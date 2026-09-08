@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import GenerationParamsFields from "@/components/playground/GenerationParamsFields.vue";
+import ModelCombobox from "@/components/playground/ModelCombobox.vue";
 import ResultPanel from "@/components/playground/ResultPanel.vue";
 import CopyButton from "@/components/CopyButton.vue";
 import ResetButton from "@/components/ResetButton.vue";
@@ -190,16 +191,14 @@ async function runGeneration() {
           Model
         </LabelHint>
         <div class="flex gap-1.5">
-          <Select v-model="selectedModelId" :disabled="!selectedProvider || modelsLoading">
-            <SelectTrigger id="model-select" class="w-64 min-w-0 text-[15px]">
-              <SelectValue :placeholder="modelsLoading ? 'Loading models…' : 'Select a model'" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="m in models" :key="m.model_id" :value="m.model_id">
-                {{ m.display_name }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <ModelCombobox
+            v-model:model-id="selectedModelId"
+            :models="models"
+            :disabled="!selectedProvider || modelsLoading"
+            :loading="modelsLoading"
+            placeholder="Select a model"
+            class="w-64 text-[15px]"
+          />
           <Tooltip>
             <TooltipTrigger as-child>
               <Button

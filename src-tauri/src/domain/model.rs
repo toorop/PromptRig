@@ -34,6 +34,25 @@ pub struct ModelInfo {
     pub capabilities: ModelCapabilities,
     /// Context window size in tokens, when known.
     pub context_window: Option<u32>,
+    /// A per-token rate, shown next to the model in the picker so the cost of a choice is
+    /// visible *before* running anything — unlike `Run.estimated_cost_usd`, which only exists
+    /// once a Run has real token usage to multiply against. Filled in by
+    /// `commands::providers::list_models` (see `pricing::resolve_rate`), not by the provider
+    /// modules themselves — `providers::*::list_models()` stays unaware of pricing entirely,
+    /// same separation as `Run`'s own cost estimation.
+    pub pricing: Option<ModelPricing>,
+}
+
+/// A per-million-token rate for display, not a computed cost (see `ModelInfo::pricing`) —
+/// compare `pricing::ModelPrice`, the internal type this is built from, and `Run.cost_is_estimate`,
+/// which the `is_estimate` field here mirrors.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, specta::Type)]
+pub struct ModelPricing {
+    pub input_per_million_usd: f64,
+    pub output_per_million_usd: f64,
+    /// `true` when this rate came from the OpenRouter cross-provider approximation rather than
+    /// our own hand-curated `pricing.json` or OpenRouter's own real price for its own models.
+    pub is_estimate: bool,
 }
 
 /// Generation parameters as configured by the user for a Run.

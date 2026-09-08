@@ -219,6 +219,7 @@ impl LlmProvider for GeminiProvider {
                     supports_streaming: true,
                 },
                 context_window: listing.input_token_limit,
+                pricing: None,
             })
             .collect();
 

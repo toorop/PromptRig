@@ -10,7 +10,7 @@ pub mod secrets;
 use chrono::{DateTime, Utc};
 
 use crate::domain::{AppError, AppResult, ExperimentId, GenerationParams, ProviderId, RunResult};
-use crate::pricing::{OpenRouterPricingCache, PricingTable};
+use crate::pricing::{self, OpenRouterPricingCache, PricingTable};
 use crate::secrets as secrets_store;
 use crate::storage::runs_repo::NewRun;
 
@@ -64,18 +64,9 @@ async fn build_new_run(
     let (estimated_cost_usd, cost_is_estimate) = match usage {
         None => (None, false),
         Some(usage) => {
-            if let Some(cost) = pricing.estimate_cost(provider, &model_id, &usage) {
-                (Some(cost), false)
-            } else if provider == ProviderId::OpenRouter {
-                let cost = openrouter_pricing
-                    .estimate_for_openrouter(&model_id, &usage)
-                    .await;
-                (cost, false)
-            } else {
-                let cost = openrouter_pricing
-                    .estimate_fallback(provider, &model_id, &usage)
-                    .await;
-                (cost, cost.is_some())
+            match pricing::resolve_rate(provider, &model_id, pricing, openrouter_pricing).await {
+                Some((rate, is_estimate)) => (Some(rate.cost(&usage)), is_estimate),
+                None => (None, false),
             }
         }
     };
