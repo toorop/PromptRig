@@ -34,9 +34,16 @@ Grab the installer for your OS from the
 
 - **Windows**: download the `.exe`, double-click it, and follow the installer. First launch may
   show a SmartScreen warning (the app isn't code-signed yet) — click "More info" → "Run anyway".
-- **macOS**: download the `.dmg`, open it, and drag PromptRig into Applications. First launch:
-  right-click the app → **Open** to get past the "unidentified developer" warning (only needed
-  once — also because it isn't code-signed yet).
+- **macOS**: download the `.dmg`, open it, and drag PromptRig into Applications. Since the app
+  isn't code-signed at all (not just unnotarized), macOS shows **"PromptRig is damaged and
+  can't be opened"** on first launch rather than the milder "unidentified developer" prompt —
+  right-click → Open does *not* fix this one. Instead, run this once in Terminal:
+  ```bash
+  xattr -cr /Applications/PromptRig.app
+  ```
+  (or type `xattr -cr ` with a trailing space and drag the app icon into the Terminal window to
+  fill in the path). This removes the quarantine flag the browser download added; the app opens
+  normally after.
 - **Linux**:
   - Debian/Ubuntu and derivatives: download the `.deb` and install it (`sudo dpkg -i
     PromptRig_*.deb`, or open it with your package manager's GUI).

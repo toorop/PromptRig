@@ -223,6 +223,15 @@ which were never actually set up despite being in the original architecture plan
     machine): `WEBKIT_DISABLE_DMABUF_RENDERER=1` before the binary fixes it, same as the dev
     workaround. Documented in `README.md`'s Linux install section and a new "Troubleshooting"
     section in `docs/release.md` (applies to `.deb`/`.rpm` too, not just the AppImage).
+  - **Second real bug found, from a friend's testing on macOS**: downloading the `.dmg` via
+    Chrome and opening the app shows `"PromptRig" is damaged and can't be opened. You should
+    move it to the Bin.` — not the milder "unidentified developer" prompt the docs originally
+    described, because the app has *no code signature at all* (not just "unnotarized"); the
+    right-click → Open bypass only works when there's some signature to trust. Correct fix:
+    `xattr -cr /Applications/PromptRig.app` (strips the quarantine attribute the browser
+    download added). The **README's original macOS instructions were wrong** — written before
+    any real signed-vs-unsigned testing happened — corrected in both `README.md` and
+    `docs/release.md`.
 
 ## Step 11 — Documentation
 

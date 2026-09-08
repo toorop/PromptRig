@@ -38,8 +38,16 @@ an extra OS warning (Gatekeeper on macOS, SmartScreen on Windows). The app still
 runs fine after clicking through it.
 
 - **Windows**: a `.exe` installer (NSIS). Download, double-click, follow the installer.
-- **macOS**: a `.dmg`. Open it, drag PromptRig to Applications. First launch: right-click the
-  app → *Open* to get past the "unidentified developer" warning (only needed once).
+- **macOS**: a `.dmg`. Open it, drag PromptRig to Applications. Because the app has **no code
+  signature at all** (not just "unnotarized"), macOS shows *"PromptRig is damaged and can't be
+  opened"* on first launch instead of the more familiar "unidentified developer" prompt —
+  confirmed via a real user's report (v0.1.0, downloaded via Chrome). The usual right-click →
+  Open bypass does **not** work for this message (that trick only works when there's *some*
+  signature to trust, even an ad-hoc one). The actual fix is to strip the quarantine attribute
+  the browser download added:
+  ```bash
+  xattr -cr /Applications/PromptRig.app
+  ```
 - **Linux**:
   - Debian/Ubuntu and derivatives: the `.deb` package (`sudo dpkg -i promptrig_*.deb` or your
     package manager's GUI).

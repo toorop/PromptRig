@@ -109,10 +109,23 @@ cleanly (backgrounded it, confirmed the process stays alive with no error output
 instant abort without the variable). Documented in both `README.md`'s Linux install section and
 a new "Troubleshooting" section in `docs/release.md` — explicitly noting it applies to
 `.deb`/`.rpm` installs too (same binary, same rendering issue), not just the AppImage.
-**Not yet committed** — about to be.
+Committed and pushed (`95ba0f3`) — real bug affecting live testers, pushed immediately rather
+than batched.
 
-Remaining before the user publishes: whatever else surfaces from their own testing (this NVIDIA
-issue being the first real find), and their planned icon touch-ups (not blocking).
+**Second real bug, from a developer friend's macOS test**: downloaded the `.dmg` via Chrome,
+got `"PromptRig" is damaged and can't be opened. You should move it to the Bin.` (screenshot
+provided) instead of the "unidentified developer" prompt the README originally described.
+Root cause: the app has **no code signature at all** (confirmed decision, see Step 10) — macOS's
+right-click → Open bypass only works for an app with *some* trusted signature (even ad-hoc); a
+fully unsigned quarantined app instead gets this harsher "damaged" message. Verified the correct
+fix via web search before telling the user anything (`xattr -cr /Applications/PromptRig.app`,
+strips the browser download's quarantine attribute) rather than guessing. **The README's
+original macOS install instructions were wrong** — written before any real unsigned-app testing
+happened — corrected in both `README.md` and `docs/release.md`.
+
+Remaining before the user publishes: whatever else surfaces from their own/friends' testing
+(two real bugs found so far — NVIDIA/Wayland Linux crash, unsigned macOS Gatekeeper message),
+and their planned icon touch-ups (not blocking).
 
 ## Done so far
 
