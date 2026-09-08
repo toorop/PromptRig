@@ -1,3 +1,4 @@
+
 # PromptRig
 
 A cross-platform desktop app for prompt engineering and side-by-side LLM comparison.
@@ -16,11 +17,12 @@ a workflow engine — just a focused tool for testing and comparing prompts acro
 
 ### Playground
 
-<!-- screenshot: Playground view -->
+<img width="1157" height="732" alt="screenshot-2026-09-08_13-33-22" src="https://github.com/user-attachments/assets/e349101b-b81d-47b7-b4fb-f1cfd24af458" />
+
 
 ### Compare
 
-<!-- screenshot: Compare view -->
+<img width="1422" height="898" alt="screenshot-2026-09-08_13-34-53" src="https://github.com/user-attachments/assets/c3db5cef-c94e-4170-a968-3e89ef37b4bd" />
 
 ## Features
 
