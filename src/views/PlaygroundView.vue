@@ -171,7 +171,7 @@ async function runGeneration() {
           Provider
         </LabelHint>
         <Select v-model="selectedProvider">
-          <SelectTrigger id="provider-select" class="w-48 text-[15px]">
+          <SelectTrigger id="provider-select" class="w-48 min-w-0 text-[15px]">
             <SelectValue placeholder="Select a provider" />
           </SelectTrigger>
           <SelectContent>
@@ -191,7 +191,7 @@ async function runGeneration() {
         </LabelHint>
         <div class="flex gap-1.5">
           <Select v-model="selectedModelId" :disabled="!selectedProvider || modelsLoading">
-            <SelectTrigger id="model-select" class="w-64 text-[15px]">
+            <SelectTrigger id="model-select" class="w-64 min-w-0 text-[15px]">
               <SelectValue :placeholder="modelsLoading ? 'Loading models…' : 'Select a model'" />
             </SelectTrigger>
             <SelectContent>

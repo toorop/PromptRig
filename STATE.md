@@ -48,10 +48,22 @@ of the Step-0-era "not yet usable" placeholder; `AGENTS.md`'s doc-links section 
 at the now-real files instead of "(once written)". `npm run build`/`cargo check` both re-verified
 clean after (docs shouldn't affect either, but confirmed rather than assumed).
 
-With Step 11 done, every step in the original plan through "MVP-ready" is complete. Remaining
-before a real tagged release: the user's icon touch-ups (their own Photoshop pass, not blocking)
-and whatever else surfaces from a final review — otherwise the natural next action is deciding
-whether to cut `v0.1.0` (or similar) and prove `release.yml` end to end, or keep polishing.
+With Step 11 done, every step in the original plan through "MVP-ready" is complete. The user
+added the README's two screenshots directly via GitHub's web editor (drag-and-drop) as planned;
+pulled that in locally (`648738c`).
+
+Also fixed, same day: Compare's (and, proactively, Playground's) model `Select` overflowing its
+column for a long display name (e.g. an OpenRouter listing like "DeepSeek: DeepSeek V4 Flash
+0731 (batch)") — same root cause as the Step 9 vertical-scroll bug, a flex item's default
+`min-width: auto` refusing to shrink below its content's width. Fixed with `min-w-0` along the
+flex chain in both views. **Committed locally, not pushed** (same reasoning as the icon commit —
+user's call to skip the CI wait for a low-risk visual fix); `master` is currently ahead of
+`origin/master` by this one commit.
+
+Remaining before a real tagged release: the user's icon touch-ups (their own Photoshop pass, not
+blocking) and whatever else surfaces from a final review — otherwise the natural next action is
+deciding whether to cut `v0.1.0` (or similar) and prove `release.yml` end to end, or keep
+polishing.
 
 ## Done so far
 

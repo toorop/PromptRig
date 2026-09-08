@@ -227,14 +227,13 @@ async function rerunColumn(column: CompareColumn) {
     <div class="flex flex-1 gap-4 overflow-x-auto pb-2">
       <Card v-for="column in columns" :key="column.key" class="flex w-80 shrink-0 flex-col gap-3 overflow-visible p-3">
         <div class="flex items-start justify-between gap-2">
-          <div class="flex flex-1 flex-col gap-2">
-            <div class="flex items-center gap-1">
+          <div class="flex min-w-0 flex-1 flex-col gap-2">
+            <div class="flex min-w-0 items-center gap-1">
               <Select
-                class="flex-1"
                 :model-value="column.provider"
                 @update:model-value="(value) => onProviderChange(column, value as ProviderId)"
               >
-                <SelectTrigger class="w-full text-[15px]">
+                <SelectTrigger class="min-w-0 flex-1 text-[15px]">
                   <SelectValue placeholder="Provider" />
                 </SelectTrigger>
                 <SelectContent>
@@ -256,14 +255,13 @@ async function rerunColumn(column: CompareColumn) {
               </Tooltip>
             </div>
 
-            <div class="flex items-center gap-1.5">
+            <div class="flex min-w-0 items-center gap-1.5">
               <Select
-                class="flex-1"
                 :model-value="column.modelId"
                 :disabled="!column.provider || modelsLoadingForColumn(column)"
                 @update:model-value="(value) => (column.modelId = value as string)"
               >
-                <SelectTrigger class="w-full text-[15px]">
+                <SelectTrigger class="min-w-0 flex-1 text-[15px]">
                   <SelectValue :placeholder="modelsLoadingForColumn(column) ? 'Loading models…' : 'Model'" />
                 </SelectTrigger>
                 <SelectContent>
