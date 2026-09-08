@@ -7,32 +7,40 @@ system prompt and a user prompt, run it, and see the result along with latency, 
 and estimated cost. It is deliberately **not** an agent builder, an observability platform, or
 a workflow engine — just a focused tool for testing and comparing prompts across models.
 
-> **Status: early development.** The project is being built incrementally; see
-> [TODO.md](./TODO.md) for the current step and [STATE.md](./STATE.md) for a detailed snapshot
-> of what's implemented so far. It is not yet usable end-to-end.
+> **Status: pre-release.** Core functionality (Playground, side-by-side Compare, five
+> providers, cost estimation, secrets/storage) is implemented and working end to end. See
+> [TODO.md](./TODO.md) for what's left before a first tagged release and
+> [STATE.md](./STATE.md) for a detailed, chronological build log.
 
-## Features (target for the first usable version)
+## Features
 
-- Single-model playground: provider + model picker, system/user prompt editors, core
-  generation parameters (temperature, max tokens, top_p — only shown when the model supports
-  them), run, and inspect the result (text, latency, token usage, estimated cost).
-- Side-by-side comparison: run the same prompt across several Provider + Model combinations at
-  once (`Run all`), each with its own result column.
-- Providers: OpenAI, Anthropic, Google Gemini, Mistral, OpenRouter, and any generic
-  OpenAI-compatible endpoint. Adding a new provider does not require touching the rest of the
-  app — see [docs/adding-a-provider.md](./docs/adding-a-provider.md) (once written).
+- **Playground**: pick a provider + model, write a system/user prompt, tune the generation
+  parameters a model actually supports (temperature, top_p, max tokens), run it, and see the
+  result with latency, token usage, and estimated cost. System/user prompt content persists
+  across app restarts.
+- **Compare**: run the same prompt across several Provider + Model combinations at once (`Run
+  all`), each in its own column, add/remove columns freely, rerun a single column.
+- **Providers**: OpenAI, Anthropic (Claude), Google Gemini, Mistral, and OpenRouter. A generic
+  OpenAI-compatible endpoint slot exists in the domain model but has no UI/implementation yet.
+  Adding a new provider doesn't require touching the rest of the app — see
+  [docs/adding-a-provider.md](./docs/adding-a-provider.md).
+- **Cost estimation**: exact pricing where hand-curated, with an approximate cross-provider
+  fallback (clearly marked "≈" with a disclosure tooltip) derived from OpenRouter's published
+  pricing for providers that don't expose their own.
 - API keys are stored in your operating system's native keyring (macOS Keychain, Windows
   Credential Manager, Secret Service on Linux) — never in plain text, never in the frontend.
-- Local SQLite storage for prompts, test cases, runs, and experiments — all non-secret data
-  stays on your machine.
+- Local SQLite storage for every Run and Experiment — all non-secret data stays on your machine.
+- Dark-by-default UI (a light theme is available via a toggle), a frameless window, and
+  self-hosted typography (no CDN dependency).
 
 ## Tech stack
 
 - [Tauri 2](https://tauri.app/) with a Rust backend
-- [Vue 3](https://vuejs.org/) + TypeScript + [Vite](https://vitejs.dev/)
-- [shadcn-vue](https://www.shadcn-vue.com/) + Tailwind CSS
-- SQLite (via `rusqlite`) for local, non-secret data
-- The OS-native keyring (via the `keyring` crate) for API keys and other secrets
+- [Vue 3](https://vuejs.org/) + TypeScript + [Vite](https://vitejs.dev/) + [Pinia](https://pinia.vuejs.org/)
+- [shadcn-vue](https://www.shadcn-vue.com/) + Tailwind CSS v4
+- SQLite (via `rusqlite`, no ORM) for local, non-secret data
+- The OS-native keyring (via the `keyring` crate) for API keys
+- [`specta`](https://github.com/oscartbeaumont/specta) + [`tauri-specta`](https://github.com/oscartbeaumont/tauri-specta) for generated, always-in-sync Rust↔TypeScript types
 
 ## Getting started (development)
 
@@ -48,10 +56,10 @@ npm run tauri dev
 ## Documentation
 
 - [docs/start.md](./docs/start.md) — original product specification
-- [docs/architecture.md](./docs/architecture.md) — architecture overview and key decisions (once written)
-- [docs/development.md](./docs/development.md) — development setup per OS (once written)
-- [docs/adding-a-provider.md](./docs/adding-a-provider.md) — how to add a new LLM provider (once written)
-- [docs/release.md](./docs/release.md) — how to cut a release (once written)
+- [docs/architecture.md](./docs/architecture.md) — architecture overview and key decisions
+- [docs/development.md](./docs/development.md) — development setup per OS
+- [docs/adding-a-provider.md](./docs/adding-a-provider.md) — how to add a new LLM provider
+- [docs/release.md](./docs/release.md) — versioning discipline and how to cut a release
 
 ## Contributing
 

@@ -40,5 +40,9 @@ though the maintainer may converse with the assistant in French or another langu
   and intent; do not edit except to fix a transcription error).
 - [TODO.md](./TODO.md) — detailed, checkable implementation plan.
 - [STATE.md](./STATE.md) — current project state / session hand-off.
-- `docs/architecture.md` (once written) — architecture overview and the structuring decisions
-  (provider abstraction, storage approach, type-sync strategy, etc.) with their rationale.
+- [docs/architecture.md](./docs/architecture.md) — architecture overview and the structuring
+  decisions (provider abstraction, storage approach, type-sync strategy, etc.) with their
+  rationale.
+- [docs/development.md](./docs/development.md) — dev environment setup and verification commands.
+- [docs/adding-a-provider.md](./docs/adding-a-provider.md) — how to add a new LLM provider.
+- [docs/release.md](./docs/release.md) — versioning discipline and the release process.

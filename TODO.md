@@ -201,12 +201,30 @@ which were never actually set up despite being in the original architecture plan
 
 ## Step 11 — Documentation
 
-- [ ] Finalize `README.md`
-- [ ] `docs/development.md` (Linux/Windows/macOS setup)
-- [ ] `docs/architecture.md`
-- [ ] `docs/adding-a-provider.md`
+- [x] Finalize `README.md` — rewrote the status line (no longer "not yet usable end-to-end"),
+  features list (marked what's actually shipped vs. the still-unimplemented generic
+  OpenAI-compatible endpoint), tech stack (added Pinia/specta/tauri-specta), and removed every
+  "(once written)" doc link now that they all exist.
+- [x] `docs/development.md` — prerequisites per OS (Linux system packages, the NVIDIA/Wayland
+  `WEBKIT_DISABLE_DMABUF_RENDERER=1` workaround, Windows/macOS build tools), running the app,
+  the exact verification commands CI runs (so a contributor can catch a red CI run locally
+  first), and the keyring integration test's `--ignored` flag.
+- [x] `docs/architecture.md` — the Run/Experiment domain model (a comparison is just N Runs
+  sharing an Experiment, no separate concept), backend module breakdown, the provider
+  abstraction, why `rusqlite` directly instead of `tauri-plugin-sql`, the keyring boundary, the
+  two-tier cost estimation design (exact `pricing.json` → OpenRouter's own price when the Run
+  is OpenRouter itself → cross-provider approximation → "—"), the specta/tauri-specta type-sync
+  mechanism (including why `i64` ids cross IPC as strings), frontend store/state conventions,
+  and an explicit "deferred by design" section (streaming, the multi-instance OpenAI-compatible
+  endpoint, auto-update/signing/AUR).
+- [x] `docs/adding-a-provider.md` — a concrete step-by-step walkthrough (add a `ProviderId`
+  variant, write the module, register it, test it) built from what the 5 real provider
+  integrations actually had to figure out (auth header shape, where the model id/system prompt
+  goes, which params a model rejects, how capabilities are discovered) — a checklist of the real
+  gotchas to check against the vendor's actual docs, not assumptions carried over from another
+  provider.
 - [x] `docs/release.md` — written in Step 10 (see above), ahead of the rest of this step
-- [ ] Confirm `TODO.md`/`STATE.md` reflect actual project state
+- [x] Confirm `TODO.md`/`STATE.md` reflect actual project state — this pass
 
 ## Deferred ideas (not scheduled — don't start early)
 

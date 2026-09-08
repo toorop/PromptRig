@@ -40,8 +40,18 @@ noticed minor corner artifacts they'll fix by hand in Photoshop later — explic
 **Committed locally but deliberately not pushed** — the user's call, to avoid waiting on CI for
 a change with nothing meaningful to verify.
 
-Now starting **Step 11 (documentation)** — the user confirmed this is next ("je pense que tu
-peux rédiger la doc?").
+**Step 11 (documentation) is done**, 2026-09-08: `docs/architecture.md`, `docs/development.md`,
+and `docs/adding-a-provider.md` written from scratch (facts cross-checked directly against the
+current source — migration filenames, function names, `ProviderId::ALL`, etc. — not just
+recalled from memory); `README.md` rewritten to reflect the app's actual current state instead
+of the Step-0-era "not yet usable" placeholder; `AGENTS.md`'s doc-links section updated to point
+at the now-real files instead of "(once written)". `npm run build`/`cargo check` both re-verified
+clean after (docs shouldn't affect either, but confirmed rather than assumed).
+
+With Step 11 done, every step in the original plan through "MVP-ready" is complete. Remaining
+before a real tagged release: the user's icon touch-ups (their own Photoshop pass, not blocking)
+and whatever else surfaces from a final review — otherwise the natural next action is deciding
+whether to cut `v0.1.0` (or similar) and prove `release.yml` end to end, or keep polishing.
 
 ## Done so far
 
