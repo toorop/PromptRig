@@ -462,17 +462,34 @@ links (Playground/Compare/Settings) are `text-[15px]`, the "PromptRig" wordmark 
 between `text-sm` (14px) and `text-base` (16px) — the arbitrary-value syntax `text-[15px]` is
 the way to hit an in-between value, same technique already used for the toolbar controls below.
 
-### Pin a Compare column so "Run all" skips it — from the same brainstorm, 2026-09-08
+### Pin a Compare column so "Run all" skips it — implemented 2026-09-08
 
-In Compare, once a column's result looks good, let the user "pin" it: it's excluded from the
-next "Run all" (keeps its existing result instead of being re-run and re-billed) while other
-columns can still be freely added/removed/re-run around it. The workflow this supports: find one
-good model, pin it as a fixed reference point, then keep swapping out the other columns to test
-alternatives against it without paying to re-run the one you already like. Needs a `pinned:
-boolean` (or similar) on `CompareColumn` (`stores/compare.ts`), a pin toggle in the column's UI
-(near the existing "✕ remove"/"Rerun" controls), and `runAll()`
-(`commands::experiments::run_experiment` / the frontend loop that builds `RunExperimentInput`)
-skipping pinned columns — likely still wants those columns' existing `Run` included in the
-`Experiment` conceptually, just not re-executed, so check how that interacts with
-`run_experiment` always creating a fresh `Experiment` today (a pinned column's *old* Run belongs
-to a *previous* Experiment — worth deciding whether that matters before implementing).
+**Implemented**, plus a persistence extension the user asked for in the same conversation
+("je pense que ce serait bien qu'on retrouve au redémarrage de l'application les cartes qui ont
+un PIN... si ça apporte beaucoup de complexité, on ne le fait pas" — assessed as low-complexity
+given the pattern was already established elsewhere, so both landed together):
+
+- `CompareColumn` (`stores/compare.ts`) gained `pinned: boolean`. `runAll()` in `CompareView.vue`
+  filters to unpinned columns before building `RunExperimentInput` and zips the response back
+  against that same filtered array (not the full `columns.value`, which would misalign indices).
+  `canRunAll` now also requires at least one unpinned column, so the button disables instead of
+  silently no-op'ing when everything is pinned. Turned out the backend needed **no changes at
+  all** — `run_experiment` was already called with an explicit column list, not "all columns
+  implicitly"; a pinned column's *old* `Run` (from whatever Experiment originally produced it)
+  just stays displayed, untouched, since it's simply never included in a new request. The
+  "does this interact with `run_experiment` always creating a fresh Experiment" concern noted
+  when this idea was first logged turned out to be a non-issue.
+- Pin toggle: a `Pin`/`PinOff` icon button next to the existing "✕ remove", plus a colored ring
+  around a pinned card's `Card` for at-a-glance visibility. Pinning doesn't restrict anything
+  else — a pinned column's provider/model can still be changed and it can still be individually
+  rerun via its own "Rerun this column" button; pinning only excludes it from the *bulk* sweep.
+- **Persistence**: pinned columns (provider, model, full `Run` result) are saved to
+  `localStorage` (`promptrig.compare.pinnedColumns`) via a `watch(columns, ..., { deep: true })`
+  that re-derives the whole saved list from current state on every change — deliberately not
+  tracking add/remove/toggle as separate special cases. Restored on store init (unpinned columns
+  always start fresh, as before this feature — only pinned ones survive a restart). This same
+  "re-derive from current state" design is also why removing a pinned column via "✕" correctly
+  clears it from the saved list too, with no extra code needed for that case specifically — the
+  user asked about this exact scenario and it was already handled by construction, confirmed by
+  tracing the watcher rather than assumed.
+- User confirmed working live (pinned a column, restarted the app, it was still there).

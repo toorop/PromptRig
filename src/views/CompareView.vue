@@ -5,7 +5,7 @@ import { commands, type ProviderId } from "@/lib/bindings";
 import { useProvidersStore } from "@/stores/providers";
 import { usePromptDraftStore } from "@/stores/promptDraft";
 import { useCompareStore, type CompareColumn } from "@/stores/compare";
-import { CircleHelp, RefreshCw } from "@lucide/vue";
+import { CircleHelp, Pin, PinOff, RefreshCw } from "@lucide/vue";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,7 +35,7 @@ const draft = usePromptDraftStore();
 const { systemPrompt, userPrompt, temperature, topP, maxTokens } = storeToRefs(draft);
 const compareStore = useCompareStore();
 const { columns } = storeToRefs(compareStore);
-const { addColumn, removeColumn } = compareStore;
+const { addColumn, removeColumn, togglePin } = compareStore;
 
 // Unlike Playground/Settings, Compare doesn't otherwise trigger a fetch of the provider list —
 // without this, landing here first (a fresh navigation, or a full page reload) shows "no
@@ -81,19 +81,25 @@ async function refreshModelsForColumn(column: CompareColumn) {
 
 const running = ref(false);
 const readyColumns = computed(() => columns.value.filter((c) => c.provider && c.modelId));
+// A pinned column is deliberately excluded from "Run all" (see runAll below) — if every column
+// is pinned, there'd be nothing left to run, so the button is disabled rather than a silent
+// no-op.
 const canRunAll = computed(
   () =>
     !running.value &&
     userPrompt.value.trim().length > 0 &&
     columns.value.length > 0 &&
-    readyColumns.value.length === columns.value.length,
+    readyColumns.value.length === columns.value.length &&
+    columns.value.some((c) => !c.pinned),
 );
 
 async function runAll() {
   if (!canRunAll.value) return;
 
+  const columnsToRun = columns.value.filter((c) => !c.pinned);
+
   running.value = true;
-  for (const column of columns.value) {
+  for (const column of columnsToRun) {
     column.running = true;
     column.run = null;
     column.runError = null;
@@ -108,20 +114,21 @@ async function runAll() {
       max_tokens: maxTokens.value ?? null,
     },
     // The backend runs these concurrently but returns results in this same order, so they can
-    // be zipped back to columns by index.
-    columns: columns.value.map((c) => ({ provider: c.provider as ProviderId, model_id: c.modelId as string })),
+    // be zipped back to columns by index — against `columnsToRun`, not the full `columns.value`,
+    // since pinned columns were never included in the request.
+    columns: columnsToRun.map((c) => ({ provider: c.provider as ProviderId, model_id: c.modelId as string })),
   });
 
   if (result.status === "ok") {
     result.data.runs.forEach((run, index) => {
-      const column = columns.value[index];
+      const column = columnsToRun[index];
       if (column) {
         column.run = run;
         column.running = false;
       }
     });
   } else {
-    for (const column of columns.value) {
+    for (const column of columnsToRun) {
       column.runError = result.error.message;
       column.running = false;
     }
@@ -226,7 +233,12 @@ async function rerunColumn(column: CompareColumn) {
     </p>
 
     <div class="flex flex-1 gap-4 overflow-x-auto pb-2">
-      <Card v-for="column in columns" :key="column.key" class="flex w-80 shrink-0 flex-col gap-3 overflow-visible p-3">
+      <Card
+        v-for="column in columns"
+        :key="column.key"
+        class="flex w-80 shrink-0 flex-col gap-3 overflow-visible p-3"
+        :class="{ 'ring-2 ring-primary/50': column.pinned }"
+      >
         <div class="flex items-start justify-between gap-2">
           <div class="flex min-w-0 flex-1 flex-col gap-2">
             <div class="flex min-w-0 items-center gap-1">
@@ -296,19 +308,41 @@ async function rerunColumn(column: CompareColumn) {
             </p>
           </div>
 
-          <Tooltip>
-            <TooltipTrigger as-child>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                :disabled="columns.length <= 1"
-                @click="removeColumn(column)"
-              >
-                ✕
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Remove this column</TooltipContent>
-          </Tooltip>
+          <div class="flex shrink-0 gap-1">
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  :class="column.pinned ? 'text-primary hover:text-primary' : 'text-muted-foreground hover:text-foreground'"
+                  @click="togglePin(column)"
+                >
+                  <PinOff v-if="column.pinned" class="size-3.5" />
+                  <Pin v-else class="size-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {{
+                  column.pinned
+                    ? "Unpin — this column will run again with the rest"
+                    : "Pin — keep this result, skip it on the next Run all (survives an app restart)"
+                }}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  :disabled="columns.length <= 1"
+                  @click="removeColumn(column)"
+                >
+                  ✕
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Remove this column</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         <Button

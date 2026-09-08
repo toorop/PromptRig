@@ -166,7 +166,24 @@ verification was inconclusive**, honestly reported as such: this dev machine's t
 graceful window close via `hyprctl` (to at least confirm a state file gets written) hit a
 non-standard Lua-based dispatch syntax on this system — abandoned rather than sunk-cost further
 into unrelated WM tooling. Real confirmation needs the user or a friend testing on a
-traditional WM/OS. Not yet committed — about to be, alongside a version bump for a new release.
+traditional WM/OS. Committed & pushed (`3482fd0`). Proposed tagging `v0.2.0` next (feature
+additions, not just fixes) — not yet done, the user wanted to keep going first.
+
+**Pin a Compare column, implemented 2026-09-08** (committed & pushed) — see TODO.md's "Pin a
+Compare column so Run all skips it" entry for the full design. Bundled with a persistence
+extension (pinned columns survive an app restart) the user asked about in the same breath,
+explicitly deferring to KISS if it turned out complex — assessed as low-complexity (same
+localStorage watch-and-derive pattern already used 3 times in this app) and built both together.
+No backend changes needed at all — `run_experiment` already took an explicit column list, so
+"pinned" just means "not included in this request," nothing more.
+
+User specifically asked afterward whether removing a pinned column correctly cleans it out of
+the saved state too — traced the actual watcher logic rather than assuming, and confirmed yes:
+`savePinnedColumns` re-derives its whole output from current `columns` state on every change
+(deep watch), so a removed column disappears from the save on the very next tick with no
+special-cased removal-handling code needed. Asked the user whether this default (no extra
+confirmation before deleting a pinned card) was fine or needed a safety prompt — they confirmed
+the current behavior (KISS) is what they want.
 
 ## Done so far
 
