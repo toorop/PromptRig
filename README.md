@@ -12,6 +12,16 @@ a workflow engine — just a focused tool for testing and comparing prompts acro
 > [TODO.md](./TODO.md) for what's left before a first tagged release and
 > [STATE.md](./STATE.md) for a detailed, chronological build log.
 
+## Screenshots
+
+### Playground
+
+<!-- screenshot: Playground view -->
+
+### Compare
+
+<!-- screenshot: Compare view -->
+
 ## Features
 
 - **Playground**: pick a provider + model, write a system/user prompt, tune the generation
