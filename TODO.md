@@ -415,14 +415,13 @@ Linux users — including the developer friends actually testing this. Tauri has
 size/position/maximized-state automatically) — check its current API before hand-rolling
 anything with `getCurrentWindow()`'s resize APIs and `localStorage`/a settings file.
 
-### Slightly larger top-nav font — from the same brainstorm, 2026-09-08
+### Slightly larger top-nav font — resolved by the user directly, 2026-09-08
 
-Distinct from the already-tracked "Select/Input control font size in the toolbars" item above
-(that one is the Provider/Model/param controls) — this is specifically `App.vue`'s top nav bar
-text (the Playground/Compare/Settings links + "PromptRig" wordmark, currently `text-sm`), which
-the user separately finds a touch small. Likely low-effort whenever it's picked up. The user
-has repeated twice now that they may just do this kind of pixel-level sizing tweak themselves —
-don't start without asking.
+**Resolved**: the user hand-edited `App.vue` themselves (as they'd said they might) — the nav
+links (Playground/Compare/Settings) are `text-[15px]`, the "PromptRig" wordmark `text-[16px]`
+(both were `text-sm`/14px). Along the way, confirmed for them that Tailwind has no named size
+between `text-sm` (14px) and `text-base` (16px) — the arbitrary-value syntax `text-[15px]` is
+the way to hit an in-between value, same technique already used for the toolbar controls below.
 
 ### Pin a Compare column so "Run all" skips it — from the same brainstorm, 2026-09-08
 

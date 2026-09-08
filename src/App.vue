@@ -28,27 +28,27 @@ function closeWindow() {
            space act as a native title bar for dragging, and the "×" button below is the only
            remaining window control (no minimize/maximize, per the user's request). -->
       <nav data-tauri-drag-region class="flex items-center gap-1 border-b bg-card/60 px-4 py-2.5">
-        <span class="mr-3 flex items-center gap-1.5 text-sm font-semibold tracking-tight">
+        <span class="mr-3 flex items-center gap-1.5 text-[16px] font-semibold tracking-tight">
           <span class="inline-block size-2 rounded-full bg-primary" aria-hidden="true" />
           PromptRig
         </span>
         <RouterLink
           to="/"
-          class="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          class="rounded-md px-3 py-1.5 text-[15px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           active-class="bg-accent font-medium text-foreground"
         >
           Playground
         </RouterLink>
         <RouterLink
           to="/compare"
-          class="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          class="rounded-md px-3 py-1.5 text-[15px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           active-class="bg-accent font-medium text-foreground"
         >
           Compare
         </RouterLink>
         <RouterLink
           to="/settings"
-          class="rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          class="rounded-md px-3 py-1.5 text-[15px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           active-class="bg-accent font-medium text-foreground"
         >
           Settings
