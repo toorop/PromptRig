@@ -435,16 +435,24 @@ rate shown in the dropdown, in a smaller font).
   representation — not something `Option`-wrapping the Rust field would have changed). Verified
   live via `tauri dev` restarts at each iteration; user confirmed the final result ("Magnifique!").
 
-### Remember window size across restarts — from the same brainstorm, 2026-09-08
+### Remember window size across restarts — implemented 2026-09-08
 
-On a traditional (non-tiling) window manager/OS — Windows, macOS, a classic Linux DE — reopening
-the app should restore the window size it had when last closed, instead of always starting at
-`tauri.conf.json`'s fixed `800×600`. Not meaningfully testable on the user's own setup (Hyprland,
-a tiling WM that manages window sizes itself), but relevant for Windows/macOS/traditional-DE
-Linux users — including the developer friends actually testing this. Tauri has a
-`tauri-plugin-window-state` plugin built specifically for this (persists and restores
-size/position/maximized-state automatically) — check its current API before hand-rolling
-anything with `getCurrentWindow()`'s resize APIs and `localStorage`/a settings file.
+**Implemented**: registered the official `tauri-plugin-window-state` (v2.4.1) in `lib.rs` —
+`.plugin(tauri_plugin_window_state::Builder::default().build())`, no other wiring needed (it
+hooks window creation/move/resize/close itself, restoring size + position + maximized state on
+next launch). Default `StateFlags::all()` used rather than restricting to just size, since
+remembering position alongside size is the expected companion behavior for basically every app
+that does this. `cargo check`/`clippy --all-targets -- -D warnings`/`fmt --check`/`test` (44,
+unchanged) all clean.
+
+**Not meaningfully verified live**: this dev machine runs Hyprland (tiling), where window
+size/position is managed by the compositor regardless of what an app requests, so restore
+behavior isn't visible here — and forcing a "graceful window close" via `hyprctl` to at least
+confirm a state file gets written didn't work either (this system's dispatcher has a
+non-standard Lua-based syntax, not stock `hyprctl`). The integration follows the plugin's
+official documented usage exactly (a single `.plugin(...)` call, no custom flags needed for the
+default behavior), so confidence is reasonably high, but real confirmation needs the user (or a
+friend) testing on an actual traditional WM/OS.
 
 ### Slightly larger top-nav font — resolved by the user directly, 2026-09-08
 

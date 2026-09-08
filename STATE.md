@@ -148,6 +148,26 @@ predicted) — nav links `text-[15px]`, wordmark `text-[16px]` — after confirm
 Tailwind has no named step between `text-sm`/14px and `text-base`/16px, only the arbitrary-value
 syntax. That TODO item is now resolved.
 
+The user posted a short announcement for the v0.1.0 release in their developer community's
+Discord (drafted, reviewed, approved as-is). Immediately after, wanting to bundle the
+searchable-model-picker win into a quick follow-up release, they asked whether anything else was
+worth adding — small or big. Recommended keeping this release tight (nothing blocking), but
+flagged the already-logged "remember window size" idea as a good small addition (official Tauri
+plugin exists, likely quick) — user agreed to include it.
+
+**Window size/position persistence, implemented 2026-09-08** (see TODO.md's "Remember window
+size across restarts" entry for the full detail): registered `tauri-plugin-window-state` v2.4.1
+in `lib.rs`, one line, no custom flags. Verified via source inspection of the plugin itself
+(confirmed it hooks window lifecycle events directly, no capability/permission needed since we
+don't use its JS-invokable commands) rather than assuming the README was accurate as-is.
+`cargo check`/`clippy --all-targets -- -D warnings`/`fmt --check`/`test` all clean. **Live
+verification was inconclusive**, honestly reported as such: this dev machine's tiling WM
+(Hyprland/Omarchy) doesn't respect requested window geometry, and an attempt to force a
+graceful window close via `hyprctl` (to at least confirm a state file gets written) hit a
+non-standard Lua-based dispatch syntax on this system — abandoned rather than sunk-cost further
+into unrelated WM tooling. Real confirmation needs the user or a friend testing on a
+traditional WM/OS. Not yet committed — about to be, alongside a version bump for a new release.
+
 ## Done so far
 
 **Step 0 — Bootstrap** (committed & pushed):

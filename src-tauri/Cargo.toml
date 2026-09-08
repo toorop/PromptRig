@@ -43,6 +43,7 @@ futures = "0.3.34"
 # while the lock is held). Tauri already depends on tokio internally; this just makes it a
 # direct dependency too, unified with the fuller-featured dev-dependency below for tests.
 tokio = { version = "1.53.1", features = ["sync"] }
+tauri-plugin-window-state = "2.4.1"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

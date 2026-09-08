@@ -45,6 +45,11 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        // Remembers window size/position/maximized-state across restarts (see docs/start.md's
+        // deferred-ideas equivalent and TODO.md) — no app-side wiring needed beyond registering
+        // it: it hooks window creation/close itself. Matters on traditional (non-tiling) window
+        // managers; a tiling WM (this dev machine's own setup) manages sizing itself regardless.
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             let app_data_dir = app.path().app_data_dir()?;
