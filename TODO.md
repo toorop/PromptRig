@@ -381,6 +381,14 @@ which needs its own AUR maintainer account/SSH setup. Explicitly deferred: the `
 (portable, no install, works on any distro including Arch-based ones) is an acceptable interim
 solution and is documented as such in `docs/release.md`.
 
+**Follow-up, 2026-09-08**: set up desktop integration for the AppImage on the user's own machine
+(a `promptrig` PATH command that always runs whichever `PromptRig_*.AppImage` in `~/Downloads`
+was modified most recently, an icon installed into `~/.local/share/icons/hicolor/`, and a
+`.desktop` entry so it shows up in the app launcher) — tested working end to end. Generalized
+(no hardcoded username/paths) and added to `docs/release.md`'s Linux section as an optional
+step for other Arch/Omarchy-type users in the same situation, since this doesn't require an AUR
+account and takes a few minutes.
+
 ### Persist the current prompt draft across app restarts — user idea, 2026-09-08 (implemented same day)
 
 **Implemented**: `stores/promptDraft.ts` now persists `systemPrompt`/`userPrompt` to

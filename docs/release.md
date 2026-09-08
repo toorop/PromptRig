@@ -61,6 +61,66 @@ runs fine after clicking through it.
     ```
     There is no native Arch package (`.pkg.tar.zst`) yet — see "Not yet done" below.
 
+### Optional: integrate the AppImage with your app launcher (Arch/Omarchy and similar)
+
+An `.AppImage` doesn't register itself as an installed app the way a `.deb`/`.rpm` does — no
+`promptrig` command, no entry in your app launcher (`wofi`/`rofi`/`walker`/...). Until there's a
+native Arch package, here's a small setup that also re-picks up a newer AppImage automatically
+whenever you download one, rather than needing to update a fixed path each release:
+
+1. A launcher script that always runs whichever `PromptRig_*.AppImage` in `~/Downloads` was
+   modified most recently:
+
+   ```bash
+   mkdir -p ~/.local/bin
+   cat > ~/.local/bin/promptrig <<'EOF'
+   #!/usr/bin/env bash
+   set -euo pipefail
+   shopt -s nullglob
+   candidates=("$HOME/Downloads"/PromptRig_*.AppImage)
+   shopt -u nullglob
+   if [ ${#candidates[@]} -eq 0 ]; then
+       echo "promptrig: no PromptRig_*.AppImage found in $HOME/Downloads" >&2
+       exit 1
+   fi
+   appimage=$(ls -t -- "${candidates[@]}" | head -n1)
+   # Drop the env var below if you don't hit the NVIDIA+Wayland issue described above.
+   exec env WEBKIT_DISABLE_DMABUF_RENDERER=1 "$appimage" "$@"
+   EOF
+   chmod +x ~/.local/bin/promptrig
+   ```
+
+   Make sure `~/.local/bin` is on your `PATH` (it already is on most modern distros, including
+   Omarchy). You now have a `promptrig` command.
+
+2. Optional icon, extracted straight from the AppImage itself (works for any AppImage, not
+   PromptRig-specific):
+
+   ```bash
+   cd /tmp && ~/Downloads/PromptRig_*.AppImage --appimage-extract '*.png' >/dev/null
+   mkdir -p ~/.local/share/icons/hicolor/256x256/apps
+   cp squashfs-root/*.png ~/.local/share/icons/hicolor/256x256/apps/promptrig.png
+   rm -rf squashfs-root
+   ```
+
+3. A `.desktop` file so it shows up in your app launcher:
+
+   ```bash
+   mkdir -p ~/.local/share/applications
+   cat > ~/.local/share/applications/promptrig.desktop <<'EOF'
+   [Desktop Entry]
+   Version=1.0
+   Type=Application
+   Name=PromptRig
+   Comment=Prompt engineering and side-by-side LLM comparison
+   Exec=promptrig
+   Icon=promptrig
+   Terminal=false
+   Categories=Development;
+   EOF
+   update-desktop-database ~/.local/share/applications
+   ```
+
 ## Troubleshooting
 
 **Linux + NVIDIA + Wayland**: the app can abort immediately on launch with
