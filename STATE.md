@@ -10,15 +10,11 @@ approved by the user.
 
 ## Current step
 
-New session, 2026-09-08 (~1-1.5h planned). Step 8 (providers) is done as of yesterday. Before
-starting Step 9 (UI polish — a `frontend-design` skill got installed specifically for this),
-the user front-loaded four more future ideas to log (not implement) — see TODO.md's Deferred
-ideas section for full detail: app versioning strategy, an auto-update mechanism (echoes
-docs/start.md's own deferred auto-update line), persisting the current prompt draft across app
-restarts (distinct from the separately-already-noted "saved prompt archive" idea), and a
-reaffirmed/refined version of the saved-prompt-sets idea (now explicitly requires delete
-support). One thing the user asked about turned out to already be done: Playground/Compare
-prompt sharing (built yesterday via `stores/promptDraft.ts`).
+Step 9 (UI polish), in progress, 2026-09-08. Self-hosted typography and the light/dark theme
+toggle (dark by default) are done, committed, and pushed. Currently mid-iteration on
+Select/Input toolbar font sizing, which the user has taken over by hand (see TODO.md) — the next
+UI item to pick up is whatever the user directs next; don't touch the font-size classes without
+being asked.
 
 ## Done so far
 
@@ -447,12 +443,52 @@ prompt sharing (built yesterday via `stores/promptDraft.ts`).
   addition (a user-defined list, not a fixed enum variant), with Settings needing to show the
   user-given name per instance plus an "add another" action. Not implemented; noted in TODO.md.
 
-- Nothing in progress right now. All Step 8 provider work is committed and pushed. About to
-  start Step 9 (UI polish). Six future ideas now logged in TODO.md's "Deferred ideas" section
-  (none implemented): saved named prompt sets ("Tests", now with explicit delete support),
-  AI-assisted system prompt improvement, app versioning strategy, an auto-update mechanism,
-  persisting the current prompt draft across app restarts, and (from Step 8) using OpenRouter's
-  pricing as a cross-provider cost estimate.
+- All Step 8 provider work is committed and pushed. Six future ideas logged in TODO.md's
+  "Deferred ideas" section (none implemented): saved named prompt sets ("Tests", now with
+  explicit delete support), AI-assisted system prompt improvement, app versioning strategy, an
+  auto-update mechanism, persisting the current prompt draft across app restarts, and (from
+  Step 8) using OpenRouter's pricing as a cross-provider cost estimate.
+
+**Step 9 (in progress) — UI polish, typography + theme toggle** (committed & pushed):
+- Self-hosted fonts: added `@fontsource/ibm-plex-sans` and `@fontsource/ibm-plex-mono` (400/500/600
+  weights as needed), imported in `main.ts` before `main.css`. Deliberately not a system-font
+  stack (inconsistent rendering across OSes) or a CDN webfont (network dependency at runtime) —
+  the user's own idea: "on n'est pas obligé de charger par le réseau des polices, on peut la
+  télécharger une fois pour toutes et l'inclure au projet." `main.css`'s `--font-sans`/`--font-mono`
+  theme variables point at them; `--font-mono` is reserved specifically for prompt/result
+  *content* (the textareas, the result text), not decorative UI labels.
+  - Applied `font-mono text-sm` to both prompt Textareas in `PlaygroundView.vue` and
+    `CompareView.vue` (previously plain default sans, inconsistent with the Result panel).
+  - Fixed `ResultPanel.vue`: only the actual result `<pre>` used `font-mono` before; the other
+    3 text states (Running…, top-level error, Run's own error, and the empty-state placeholder)
+    now use it too, so switching between states doesn't visibly change font mid-flow.
+  - The user asked about a perceived size mismatch between the (now-mono, visually larger)
+    prompt textareas and the (sans) toolbar Select/Input controls, both nominally `text-sm`;
+    per their explicit preference ("je propose plus de grossir la plus petite... que de réduire
+    l'autre") grew the toolbar controls instead of shrinking the textareas. Went `text-base`,
+    found too large once seen live, tried an intermediate `text-[15px]` — **still not finalized;
+    the user is taking over this specific pixel-tuning by hand** ("le plus simple, ce serait
+    peut-être que je fasse ça moi-même à la main, comme ça je vois directement le résultat").
+    Don't adjust these classes further without being asked.
+  - Also separately confirmed (by reading the code, not a bug) that `CompareView`'s system-prompt
+    and user-prompt Textareas share byte-identical classes — a perceived font/color difference
+    the user raised is almost certainly the dimmer `placeholder:text-muted-foreground` color
+    showing on whichever field was empty at the time, not a real inconsistency.
+- Light/dark theme toggle: new `src/lib/theme.ts` (shared `Theme` type + `THEME_STORAGE_KEY` +
+  `loadStoredTheme()`/`applyTheme()`) and `src/stores/theme.ts` (Pinia store wrapping it with a
+  reactive `theme` ref + `toggle()`). `main.ts` applies the persisted-or-default theme
+  synchronously before `createApp(...).mount(...)`, so there's no flash of the wrong theme on
+  launch. Toggle button (Sun/Moon icons from the already-installed-but-previously-unused
+  `@lucide/vue`) added to `App.vue`'s top nav.
+  - **Dark is the default**, not light — matches the user's own long-standing Nord usage
+    ("c'est comme ça que j'utilise le thème Nord, je l'ai partout") and their live verdict once
+    they saw it: "c'est beaucoup plus beau avec le thème sombre." The `.dark` Nord CSS variables
+    already existed since Step 0/6 — this just makes dark the actual default and adds the
+    toggle + persistence that were missing.
+- `npm run build` (vue-tsc + vite) clean. Verified live via Vite HMR in the already-running
+  `tauri dev` session (page-reloaded on the `main.ts` change, hot-updated `App.vue` after) —
+  no full restart needed this time. User confirmed the result looked right before requesting
+  the commit.
 
 ## Known issues / incidents
 

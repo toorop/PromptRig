@@ -163,7 +163,7 @@ async function runGeneration() {
       <div class="flex flex-col gap-1.5">
         <Label class="text-xs text-muted-foreground">Provider</Label>
         <Select v-model="selectedProvider">
-          <SelectTrigger class="w-48">
+          <SelectTrigger class="w-48 text-[15px]">
             <SelectValue placeholder="Select a provider" />
           </SelectTrigger>
           <SelectContent>
@@ -178,7 +178,7 @@ async function runGeneration() {
         <Label class="text-xs text-muted-foreground">Model</Label>
         <div class="flex gap-1.5">
           <Select v-model="selectedModelId" :disabled="!selectedProvider || modelsLoading">
-            <SelectTrigger class="w-64">
+            <SelectTrigger class="w-64 text-[15px]">
               <SelectValue :placeholder="modelsLoading ? 'Loading models…' : 'Select a model'" />
             </SelectTrigger>
             <SelectContent>
@@ -223,6 +223,7 @@ async function runGeneration() {
             id="system-prompt"
             v-model="systemPrompt"
             rows="6"
+            class="font-mono text-sm"
             placeholder="You are a helpful assistant."
           />
         </div>
@@ -236,7 +237,7 @@ async function runGeneration() {
             id="user-prompt"
             v-model="userPrompt"
             rows="10"
-            class="flex-1"
+            class="flex-1 font-mono text-sm"
             placeholder="Ask something…"
           />
         </div>

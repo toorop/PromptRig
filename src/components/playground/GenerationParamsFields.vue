@@ -33,18 +33,18 @@ const showMaxTokens = computed(() => props.capabilities?.supports_max_tokens ?? 
         step="0.1"
         min="0"
         max="2"
-        class="w-24"
+        class="w-24 text-[15px]"
       />
       <p class="text-xs text-muted-foreground">0 = deterministic, 2 = very random</p>
     </div>
     <div v-if="showTopP" class="flex flex-col gap-1.5">
       <Label for="top-p" class="text-xs text-muted-foreground">Top P</Label>
-      <Input id="top-p" v-model.number="topP" type="number" step="0.05" min="0" max="1" class="w-24" />
+      <Input id="top-p" v-model.number="topP" type="number" step="0.05" min="0" max="1" class="w-24 text-[15px]" />
       <p class="text-xs text-muted-foreground">Alt. to temperature, usually tune one</p>
     </div>
     <div v-if="showMaxTokens" class="flex flex-col gap-1.5">
       <Label for="max-tokens" class="text-xs text-muted-foreground">Max tokens</Label>
-      <Input id="max-tokens" v-model.number="maxTokens" type="number" step="1" min="1" class="w-28" />
+      <Input id="max-tokens" v-model.number="maxTokens" type="number" step="1" min="1" class="w-28 text-[15px]" />
       <p class="text-xs text-muted-foreground">Caps response length &amp; cost</p>
     </div>
   </div>

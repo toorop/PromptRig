@@ -170,6 +170,7 @@ async function rerunColumn(column: CompareColumn) {
             id="compare-system-prompt"
             v-model="systemPrompt"
             rows="4"
+            class="font-mono text-sm"
             placeholder="You are a helpful assistant."
           />
         </div>
@@ -178,7 +179,13 @@ async function rerunColumn(column: CompareColumn) {
             <Label for="compare-user-prompt">User prompt</Label>
             <CopyButton :text="userPrompt" />
           </div>
-          <Textarea id="compare-user-prompt" v-model="userPrompt" rows="4" placeholder="Ask something…" />
+          <Textarea
+            id="compare-user-prompt"
+            v-model="userPrompt"
+            rows="4"
+            class="font-mono text-sm"
+            placeholder="Ask something…"
+          />
         </div>
       </div>
 
@@ -209,7 +216,7 @@ async function rerunColumn(column: CompareColumn) {
               :model-value="column.provider"
               @update:model-value="(value) => onProviderChange(column, value as ProviderId)"
             >
-              <SelectTrigger>
+              <SelectTrigger class="text-[15px]">
                 <SelectValue placeholder="Provider" />
               </SelectTrigger>
               <SelectContent>
@@ -225,7 +232,7 @@ async function rerunColumn(column: CompareColumn) {
                 :disabled="!column.provider || modelsLoadingForColumn(column)"
                 @update:model-value="(value) => (column.modelId = value as string)"
               >
-                <SelectTrigger>
+                <SelectTrigger class="text-[15px]">
                   <SelectValue :placeholder="modelsLoadingForColumn(column) ? 'Loading models…' : 'Model'" />
                 </SelectTrigger>
                 <SelectContent>

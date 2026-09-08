@@ -132,12 +132,13 @@ Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
 
 ## Step 9 — UI polish
 
-- [ ] Light/dark theme toggle (the `.dark` CSS variables already exist — Nord-themed, see Step 6 — just needs the toggle UI and persistence)
-- [ ] Revisit contrast: a first Nord-inspired pass landed in Step 6 (light-mode background now `nord5` instead of white, cards `nord6`), but the user found the result had *less* contrast than intended, not more — acceptable for now, but worth a proper look here rather than more ad hoc tweaking
+- [x] Self-hosted typography: IBM Plex Sans (UI chrome) + IBM Plex Mono (prompt/result content only, not decorative labels) via `@fontsource/*` npm packages — no CDN webfont, no reliance on whatever happens to be installed on the user's system. Wired through `main.css`'s `--font-sans`/`--font-mono` theme variables. `font-mono` applied to both prompt Textareas (Playground + Compare) and all 4 text states of `ResultPanel` (running/error/run-error/empty-placeholder — previously only the actual result `<pre>` used it, so the empty-state hint looked inconsistent).
+- [x] Light/dark theme toggle — `stores/theme.ts` (Pinia) + `lib/theme.ts` (shared storage-key/apply helpers so `main.ts` can apply the persisted/default theme before mount, avoiding a flash of the wrong theme). Sun/Moon icon button (`@lucide/vue`) in `App.vue`'s top nav. **Dark is the default** (not light) — the user's explicit preference, confirmed live: "c'est beaucoup plus beau avec le thème sombre... c'est comme ça que j'utilise le thème Nord, je l'ai partout." Persisted per device via `localStorage`.
+- [ ] Revisit contrast: a first Nord-inspired pass landed in Step 6 (light-mode background now `nord5` instead of white, cards `nord6`), but the user found the result had *less* contrast than intended, not more — acceptable for now, but worth a proper look here rather than more ad hoc tweaking. Less urgent now that dark (already higher-contrast) is the default.
+- [ ] Select/Input control font size in the toolbars — mid-iteration: grew from `text-sm` to `text-base`, then to an intermediate `text-[15px]` (still felt slightly large to the user at `text-base`). **User is taking this over by hand** — they have live visual feedback and prefer to fine-tune themselves; don't touch these font-size classes further without asking.
 - [ ] Resizable panels
 - [ ] Advanced params drawer
 - [ ] Easy result copy (basic copy button already added to `ResultPanel` in Step 6 — revisit only if it needs more than that)
-- [ ] `ResultPanel`'s `<pre>` result text renders in the browser's default monospace font, not the app's theme font — found during Step 7 Compare testing
 - [ ] No scrolling when the window is smaller than the content — bottom content gets clipped/hidden instead of scrolling into view (found during Step 7 Compare testing with multiple columns); likely related to the resizable-panels work above rather than a separate fix
 
 ## Step 10 — CI/CD

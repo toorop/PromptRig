@@ -52,11 +52,11 @@ function forcePlainTextCopy(event: ClipboardEvent) {
     </CardHeader>
 
     <CardContent class="flex flex-1 flex-col gap-3 overflow-auto" @copy="forcePlainTextCopy">
-      <p v-if="running" class="text-sm text-muted-foreground">Running…</p>
-      <p v-else-if="error" class="text-sm text-destructive">{{ error }}</p>
+      <p v-if="running" class="font-mono text-sm text-muted-foreground">Running…</p>
+      <p v-else-if="error" class="font-mono text-sm text-destructive">{{ error }}</p>
       <template v-else-if="run">
-        <p v-if="run.error" class="text-sm text-destructive">{{ run.error }}</p>
-        <pre v-else class="flex-1 whitespace-pre-wrap text-sm select-text">{{ run.result?.text }}</pre>
+        <p v-if="run.error" class="font-mono text-sm text-destructive">{{ run.error }}</p>
+        <pre v-else class="flex-1 whitespace-pre-wrap font-mono text-sm select-text">{{ run.result?.text }}</pre>
 
         <div class="mt-auto flex flex-wrap gap-2 border-t pt-3">
           <Badge variant="secondary">{{ run.result?.duration_ms ?? 0 }} ms</Badge>
@@ -66,7 +66,7 @@ function forcePlainTextCopy(event: ClipboardEvent) {
           <Badge variant="secondary">{{ formatCost(run.estimated_cost_usd) }}</Badge>
         </div>
       </template>
-      <p v-else class="text-sm text-muted-foreground">Run a prompt to see the result here.</p>
+      <p v-else class="font-mono text-sm text-muted-foreground">Run a prompt to see the result here.</p>
     </CardContent>
   </Card>
 </template>
