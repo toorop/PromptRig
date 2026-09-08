@@ -48,7 +48,7 @@ const themeStore = useThemeStore();
           <Moon v-else class="size-4" />
         </Button>
       </nav>
-      <main class="flex-1 overflow-auto">
+      <main class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <RouterView />
       </main>
     </div>

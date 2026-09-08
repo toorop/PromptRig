@@ -161,7 +161,7 @@ async function rerunColumn(column: CompareColumn) {
 </script>
 
 <template>
-  <div class="flex h-full flex-col gap-4 p-4">
+  <div class="flex min-h-full flex-col gap-4 p-4">
     <Card class="flex flex-col gap-4 p-4">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div class="flex flex-col gap-1.5">
@@ -225,7 +225,7 @@ async function rerunColumn(column: CompareColumn) {
     </p>
 
     <div class="flex flex-1 gap-4 overflow-x-auto pb-2">
-      <Card v-for="column in columns" :key="column.key" class="flex w-80 shrink-0 flex-col gap-3 p-3">
+      <Card v-for="column in columns" :key="column.key" class="flex w-80 shrink-0 flex-col gap-3 overflow-visible p-3">
         <div class="flex items-start justify-between gap-2">
           <div class="flex flex-1 flex-col gap-2">
             <div class="flex items-center gap-1">

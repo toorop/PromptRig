@@ -161,7 +161,7 @@ async function runGeneration() {
 </script>
 
 <template>
-  <div class="flex h-full flex-col gap-4 p-4">
+  <div class="flex min-h-full flex-col gap-4 p-4">
     <div class="flex flex-wrap items-end gap-3 rounded-xl bg-card p-3 ring-1 ring-foreground/10">
       <div class="flex flex-col gap-1.5">
         <LabelHint
@@ -230,8 +230,8 @@ async function runGeneration() {
     </p>
     <p v-if="modelsError" class="text-sm text-destructive">{{ modelsError }}</p>
 
-    <div class="grid flex-1 grid-cols-1 gap-4 overflow-auto md:grid-cols-2">
-      <Card class="flex flex-col gap-4 overflow-auto p-4">
+    <div class="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
+      <Card class="flex flex-col gap-4 overflow-visible p-4">
         <div class="flex flex-col gap-1.5">
           <div class="flex items-center justify-between">
             <LabelHint

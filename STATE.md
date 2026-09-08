@@ -11,11 +11,11 @@ approved by the user.
 ## Current step
 
 Step 9 (UI polish), in progress, 2026-09-08. Self-hosted typography, the light/dark theme toggle
-(dark by default), and a pass of real tooltips + param validation (see below) are done,
-committed, and pushed. Currently mid-iteration on Select/Input toolbar font sizing, which the
-user has taken over by hand (see TODO.md) — the next UI item to pick up is whatever the user
-directs next ("encore d'autres choses concernant l'UI et le design qu'on fera après" — nothing
-specific queued yet); don't touch the font-size classes without being asked.
+(dark by default), a pass of real tooltips + param validation, and the whole-window-scroll fix
+(see below) are done, committed, and pushed. Currently mid-iteration on Select/Input toolbar
+font sizing, which the user has taken over by hand (see TODO.md) — don't touch those classes
+without being asked. User says there's "au moins un petit truc" more to fix on the UI before
+this pass wraps up — not yet specified what.
 
 ## Done so far
 
@@ -527,6 +527,47 @@ specific queued yet); don't touch the font-size classes without being asked.
   HMR warning from an in-between save state — expected, not a real bug, confirmed gone once the
   edit finished; once more for a fully clean restart to confirm before reporting back). User
   tested live and confirmed it looks right before requesting the commit.
+
+**Step 9 (in progress) — whole-window scroll fix** (committed & pushed):
+- The bug: reducing the window's height clipped/hid content (e.g. the Temperature/Top P/Max
+  tokens row in Playground) with no way to reach it — "j'ai du contenu qui devient invisible."
+- **First attempt (per-panel internal scroll) had two real problems**, both found via the user's
+  live testing and a screenshot:
+  1. A `tailwind-merge` conflict-detection gap: `Card`'s own default class already bakes in
+     `overflow-hidden`; overriding it with `overflow-y-auto` doesn't actually override anything
+     reliably, because `twMerge` treats `overflow-hidden` (the `overflow` shorthand group) and
+     `overflow-y-auto` (the `overflow-y` longhand group) as unrelated, non-conflicting classes —
+     both survive in the merged class list, and which one visually wins is decided by whichever
+     happens to come later in Tailwind's generated CSS, an implementation detail that isn't
+     stable and isn't the same between a full `vite build` and Vite's dev-server HMR CSS
+     injection. Confirmed the bug and the fix directly with a `tailwind-merge` Node one-liner:
+     `twMerge('overflow-hidden', 'overflow-y-auto')` → keeps both; `twMerge('overflow-hidden',
+     'overflow-auto')` → correctly collapses to one. Switched the panel's override to plain
+     `overflow-auto` to fix this specific defect.
+  2. Even with that fixed, the user's actual screenshot showed it working exactly as coded — a
+     visible themed scrollbar sliver on the *prompt panel* — but that's not what they wanted at
+     all: **one single scrollbar for the whole window**, not a separate nested scroll region per
+     panel. Their own words: "ce n'est pas au niveau du panneau de gauche que je veux une barre
+     de scroll, c'est au niveau de la fenêtre... mets une barre de scroll au niveau de la
+     fenêtre, sous le header, sous la barre de menu."
+- **Final design, reworked accordingly**: `App.vue`'s `<main>` (already the element directly
+  under the top nav) is the *only* scroll container app-wide (`overflow-y-auto`, horizontal
+  explicitly locked via `overflow-x-hidden` so nothing doubles up with Compare's own intentional
+  horizontal column-browsing scroll). `PlaygroundView`/`CompareView` root divs changed from
+  `h-full` (hard-clamped to exactly the viewport, the real root cause — content taller than that
+  had nowhere to go but get clipped) to `min-h-full` (a floor, not a ceiling — still fills the
+  full height when content is short, but is free to grow taller when it isn't, which is what
+  lets the extra height become visible overflow that `main` can then scroll to). Removed every
+  intermediate `overflow-hidden`/`overflow-auto` boundary that had been acting as its own nested
+  scroll region (the Playground two-column grid, the prompt `Card`, `ResultPanel`'s `Card` and
+  `CardContent`, Compare's per-column `Card`) — where `Card`'s own default `overflow-hidden`
+  would otherwise still clip, each is now explicitly `overflow-visible` instead (confirmed this
+  merges cleanly with `twMerge` too, same shorthand-vs-shorthand group). Compare's horizontal
+  per-row scroll for browsing many columns side by side (`overflow-x-auto`) is a separate,
+  intentional feature and was left untouched — only the vertical clipping was ever the bug.
+- `npm run build` clean throughout both attempts. Verified live via full `tauri dev` restarts
+  (not HMR) at each step, given the dev-server-vs-build CSS-ordering discrepancy found along the
+  way; user confirmed the final version works ("c'est parfait") before requesting the commit.
 
 ## Known issues / incidents
 

@@ -45,13 +45,13 @@ function forcePlainTextCopy(event: ClipboardEvent) {
 </script>
 
 <template>
-  <Card class="flex flex-col overflow-hidden">
+  <Card class="flex flex-col overflow-visible">
     <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
       <CardTitle class="text-sm font-medium">Result</CardTitle>
       <Button v-if="copyableText" variant="ghost" size="sm" @click="copyResult">Copy</Button>
     </CardHeader>
 
-    <CardContent class="flex flex-1 flex-col gap-3 overflow-auto" @copy="forcePlainTextCopy">
+    <CardContent class="flex flex-1 flex-col gap-3" @copy="forcePlainTextCopy">
       <p v-if="running" class="font-mono text-sm text-muted-foreground">Running…</p>
       <p v-else-if="error" class="font-mono text-sm text-destructive">{{ error }}</p>
       <template v-else-if="run">
