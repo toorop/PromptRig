@@ -1,12 +1,19 @@
 <script setup lang="ts">
+import { onMounted, ref } from "vue";
 import { RouterLink, RouterView } from "vue-router";
-import { Moon, Sun, X } from "@lucide/vue";
+import { CircleHelp, Moon, Sun, X } from "@lucide/vue";
+import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useThemeStore } from "@/stores/theme";
 import { Button } from "@/components/ui/button";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const themeStore = useThemeStore();
+const appVersion = ref<string>();
+
+onMounted(async () => {
+  appVersion.value = await getVersion();
+});
 
 function closeWindow() {
   getCurrentWindow().close();
@@ -46,10 +53,18 @@ function closeWindow() {
         >
           Settings
         </RouterLink>
+        <Tooltip>
+          <TooltipTrigger as-child>
+            <Button variant="ghost" size="icon" class="ml-auto text-muted-foreground hover:text-foreground">
+              <CircleHelp class="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>PromptRig{{ appVersion ? ` v${appVersion}` : "" }}</TooltipContent>
+        </Tooltip>
         <Button
           variant="ghost"
           size="icon"
-          class="ml-auto text-muted-foreground hover:text-foreground"
+          class="text-muted-foreground hover:text-foreground"
           :title="themeStore.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
           @click="themeStore.toggle"
         >

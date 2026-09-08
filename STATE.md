@@ -68,6 +68,25 @@ inline that the release link 404s for now, since no version has actually been ta
 Committed locally, also not pushed (no functional reason to — nobody's editing this file via
 GitHub the way the screenshots needed pushing to work).
 
+Asked the user directly whether they saw anything else worth adding before handing the project
+to developer friends to test. Flagged three things; user's calls on each: (1) cutting and
+smoke-testing a real release themselves, before sending any link — they'll do this, "ça ne
+devrait pas tarder"; (2) no version number visible anywhere in the app, making bug reports from
+testers hard to pin to a build — user agreed, wanted it added, and specifically suggested a
+discreet "?" icon over a literal "About" menu entry; (3) whether the NVIDIA+Wayland
+`WEBKIT_DISABLE_DMABUF_RENDERER` workaround (documented for `tauri dev`) also applies to the
+*packaged* binary — user's call: if it works on their own machine, that's good enough for this
+MVP, not worth pre-emptively investigating further.
+
+Implemented (2): a small `CircleHelp` icon button in `App.vue`'s nav (before the theme toggle),
+showing "PromptRig v{version}" in a tooltip on hover. Version comes from `@tauri-apps/api/app`'s
+built-in `getVersion()` (reads `tauri.conf.json`, no custom Tauri command needed) — added
+`core:app:allow-version` to `capabilities/default.json` (confirmed as a real permission id in
+the generated schema, same way `allow-close`/`allow-start-dragging` were in Step 9). `npm run
+build` clean; verified live via a full `tauri dev` restart (capability changes need one, HMR
+doesn't pick them up) — no permission errors, tooltip shows correctly. User confirmed working
+("ça fonctionne, c'est bien") before requesting the commit.
+
 Remaining before a real tagged release: the user's icon touch-ups (their own Photoshop pass, not
 blocking) and whatever else surfaces from a final review — otherwise the natural next action is
 deciding whether to cut `v0.1.0` (or similar) and prove `release.yml` end to end, or keep
