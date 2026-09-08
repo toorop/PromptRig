@@ -20,13 +20,21 @@ committed, and pushed. `ci.yml` has now run for real on GitHub (all 3 jobs green
 `release.yml` still hasn't (needs a real `v*.*.*` tag push, and there's no version worth
 releasing yet).
 
-Before moving to Step 11 (documentation), the user asked for one more MVP-blocking feature first
-("avant de faire une release... il y a un truc que j'aimerais que l'on fasse pour le MVP... régler
-cette histoire de tarifs"): cross-provider cost estimates via OpenRouter's pricing. Implemented,
-tested, and confirmed working live by the user ("Ça fonctionne, bravo!") — see below for the
-full design. This was the last deferred idea blocking a first release; **Step 11 documentation
-is the natural next step**, unless the user wants to cut a first tagged release now to prove the
-release pipeline end-to-end.
+Before moving to Step 11 (documentation), the user asked for two more MVP-blocking features
+first, both now done, tested, and pushed, 2026-09-08:
+1. Cross-provider cost estimates via OpenRouter's pricing ("avant de faire une release... il y a
+   un truc que j'aimerais que l'on fasse pour le MVP... régler cette histoire de tarifs"),
+   including a same-day follow-up fix for Mistral's `-latest` alias models showing no price —
+   see below for both.
+2. Persisting the current System/User prompt draft across app restarts (the deferred idea from
+   the previous session), plus a real bug caught and fixed along the way: the frameless window's
+   drag region (Step 9) was silently broken on *every* platform (not just untestable on the
+   user's tiling WM as first assumed) — `core:window:allow-start-dragging` was never added to
+   `capabilities/default.json`, so `data-tauri-drag-region` failed with an unhandled permission
+   rejection visible in the dev console.
+
+**Step 11 documentation is the natural next step**, unless the user wants to cut a first tagged
+release now to prove the release pipeline end-to-end.
 
 ## Done so far
 
@@ -724,6 +732,63 @@ user's explicit request, 2026-09-08; committed & pushed):
   warnings` both clean. `npm run build` clean; verified live via `tauri dev` — user tested
   Anthropic/Gemini/Mistral and confirmed the estimate appears correctly ("Ça fonctionne,
   bravo!").
+
+**Follow-up fix — Mistral's `-latest` alias models showed no estimate** (same day, committed &
+pushed):
+- The user asked specifically to *diagnose* first ("je voudrais être sûr que c'est parce qu'on
+  n'a pas le prix dans la liste OpenRouter, ou c'est le parsing qui n'est pas au point") rather
+  than assuming a fix was wanted — checked before touching any code. Fetched OpenRouter's real
+  catalog again (`curl`, filtered to `mistralai/*`) and found the true cause: OpenRouter only
+  ever lists *dated* Mistral snapshots (`ministral-3b-2512`, `ministral-3b-2407`, `mistral-
+  large-2407`, `mistral-large-2512`, ...), never a bare `-latest` entry — while Mistral's own API
+  returns rolling aliases like `ministral-3b-latest` (confirmed against this project's own
+  `providers/mistral.rs` test fixtures, which already use `"mistral-small-latest"`). So this
+  wasn't a missing-data problem or a parsing bug, but a genuine gap in the matching heuristic —
+  affecting Mistral's entire lineup, not just the one model reported. Asked the user whether to
+  fix now or log it (they'd said "pas critique"); they chose to fix it immediately.
+- Deliberately did **not** extend the existing date-stripping normalization to also swallow
+  short version-like suffixes (e.g. treating `mistral-large-2407` and `mistral-large-2512` as
+  "the same base") — OpenRouter's own data shows those two snapshots have meaningfully different
+  prices (4x apart), so collapsing them would risk silently picking a stale price. Instead added
+  a separate, narrower path used *only* when the query id itself ends in the literal `-latest`
+  alias: `strip_latest_alias` detects that suffix, and a new `latest_by_provider` lookup
+  (populated by `trailing_numeric_suffix`, which extracts and compares the version number of
+  each dated candidate sharing a base name — works uniformly for both Mistral's short `YYMM`-
+  style tags and full `YYYYMMDD` dates, since both compare correctly as plain integers) resolves
+  to whichever dated snapshot looks newest. A bare, unversioned listing (e.g. plain
+  `mistral-large` with no suffix at all) is simply skipped for this path — there's no way to
+  rank its recency against dated siblings, so it's excluded rather than guessed at.
+- 3 new unit tests (44 total, up from 41): `-latest` suffix stripping, version-number extraction
+  (including that an unversioned id correctly yields `None`), and an end-to-end case proving the
+  resolved price is the *newer* of two dated candidates, not just whichever was inserted first.
+  `cargo fmt --check`/`clippy --all-targets -- -D warnings`/`test` all clean; verified live via a
+  full `tauri dev` restart.
+
+**Drag-region permission bug, found incidentally while testing prompt-draft persistence**
+(committed & pushed):
+- While restarting `tauri dev` to prove the prompt draft survives a real restart, the dev
+  console showed: `Unknown Error: window.start_dragging not allowed. Permissions associated
+  with this command: core:window:allow-start-dragging`. This is the frameless-window drag
+  region added in Step 9 (`data-tauri-drag-region` on `App.vue`'s `<nav>`) — at the time, the
+  user couldn't verify dragging worked because they run a tiling window manager (Hyprland/
+  Omarchy) where free-floating drag doesn't really apply, so the omission went unnoticed. This
+  console error proves it was actually **broken on every platform**, not just untestable on
+  theirs: `capabilities/default.json` only ever gained `core:window:allow-close` (Step 9), never
+  the separate `core:window:allow-start-dragging` permission Tauri's ACL system requires for the
+  drag gesture itself. Fixed by adding it (confirmed as a real permission id via the generated
+  `gen/schemas/desktop-schema.json`, same way `allow-close` was verified in Step 9). `cargo
+  check` clean; verified live via `tauri dev` restart — the same console error no longer appears.
+
+**Prompt draft persistence across restarts** (user idea from 2026-09-08's earlier session,
+implemented later the same day; committed & pushed):
+- `stores/promptDraft.ts`: `systemPrompt`/`userPrompt` now read from and write-through to
+  `localStorage` (`promptrig.promptDraft`) — same per-device pattern as the existing "last used
+  provider/model" memory in `PlaygroundView.vue`. Deliberately scoped to just these two fields,
+  not the generation params, per the user's explicit instruction: "je ne parle pas de pouvoir
+  sauvegarder des prompts et de les gérer, mais juste garder le dernier prompt système et le
+  dernier user prompt." `npm run build` clean; **user-verified with a real app restart** (typed
+  content, closed the app, reopened it, confirmed it came back) — the strongest possible test
+  for a "survives a restart" feature.
 
 ## Known issues / incidents
 

@@ -223,6 +223,15 @@ Discussed 2026-09-07, explicitly not to be implemented until the user asks:
   OpenRouter's public `/models` catalog once per session, fuzzy-match native model ids against
   OpenRouter's `vendor/model` ids, disclose via a new `Run.cost_is_estimate` flag + a "≈" badge
   and tooltip in the UI). User confirmed it works live ("Ça fonctionne, bravo!").
+  - **Follow-up fix, same day**: user reported Mistral's `ministral-3b-latest` showed no cost.
+    Root cause: OpenRouter never lists a bare `-latest` entry, only dated snapshots
+    (`ministral-3b-2512`, `ministral-3b-2407`, ...) — Mistral's whole model lineup uses this
+    rolling-alias convention (`mistral-large-latest`, `mistral-small-latest`, etc.), so this
+    affected all of it, not just one model. Fixed by resolving a `-latest` alias to whichever
+    dated snapshot for the same base name has the highest version number (works for both
+    `YYMM`-style short tags and full `YYYYMMDD` dates, compared as plain integers). Confirmed
+    exact vs. approximate vs. no-match are still handled correctly — never guesses a wrong
+    model's price. 3 new tests (44 total, up from 41).
 - **LiteLLM's `model_prices_and_context_window.json`**
   (raw: `https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json`)
   is a large (thousands of entries, effectively every provider/model) community-maintained
@@ -301,13 +310,15 @@ which needs its own AUR maintainer account/SSH setup. Explicitly deferred: the `
 (portable, no install, works on any distro including Arch-based ones) is an acceptable interim
 solution and is documented as such in `docs/release.md`.
 
-### Persist the current prompt draft across app restarts — user idea, 2026-09-08
+### Persist the current prompt draft across app restarts — user idea, 2026-09-08 (implemented same day)
 
-`stores/promptDraft.ts` (system prompt, user prompt, params — shared between Playground and
-Compare since Step 6) is in-memory only right now: closing and reopening the app loses whatever
-you were working on. The user wants this to survive a restart, the same way the "last used
-provider/model" selection already does via `localStorage` (see `PlaygroundView.vue`'s
-`loadLastSelection`/`saveLastSelection`). Likely the simplest of these four new ideas to build
-when picked up: read the draft from `localStorage` on store init, write-through on change.
-Distinct from the "saved prompt sets" idea above — this is about *not losing your current
-in-progress draft*, not an explicit named archive of multiple saved prompts.
+**Implemented**: `stores/promptDraft.ts` now persists `systemPrompt`/`userPrompt` to
+`localStorage` (`promptrig.promptDraft`), read on store init and write-through on every change —
+same per-device pattern as the "last used provider/model" selection
+(`PlaygroundView.vue`'s `loadLastSelection`/`saveLastSelection`). Deliberately scoped to just the
+two prompt fields, not the generation params (temperature/top_p/max_tokens stay session-only), per
+the user's explicit ask: "je ne parle pas de pouvoir sauvegarder des prompts... juste garder le
+dernier prompt système et le dernier user prompt." User confirmed working after a real app
+restart. Distinct from the "saved prompt sets" idea above, which is still not built — that's an
+explicit named archive of multiple saved prompts, this is just not losing your current
+in-progress draft.

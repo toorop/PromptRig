@@ -39,15 +39,20 @@ use super::ModelPrice;
 
 const OPENROUTER_MODELS_URL: &str = "https://openrouter.ai/api/v1/models";
 
-/// The two lookups built from one fetch of OpenRouter's catalog:
+/// The lookups built from one fetch of OpenRouter's catalog:
 /// - `openrouter_exact`: OpenRouter's own model id (e.g. `"openai/gpt-4o-mini"`) → its real
 ///   price for calling *OpenRouter itself* with that model — exact, not an estimate.
 /// - `fallback_by_provider`: `(target provider, normalized native model id)` → OpenRouter's
 ///   price for the OpenRouter listing that looked like the equivalent model — an approximation
 ///   for that *other* provider's own pricing.
+/// - `latest_by_provider`: `(target provider, normalized base name)` → the price of whichever
+///   dated/versioned OpenRouter listing for that base looks newest — used when the native id is
+///   a rolling `-latest` alias (common on Mistral: `mistral-large-latest`,
+///   `ministral-3b-latest`, ...) that doesn't itself carry a version to match against.
 struct PricingData {
     openrouter_exact: HashMap<String, ModelPrice>,
     fallback_by_provider: HashMap<(ProviderId, String), ModelPrice>,
+    latest_by_provider: HashMap<(ProviderId, String), ModelPrice>,
 }
 
 enum LoadState {
@@ -89,16 +94,29 @@ impl OpenRouterPricingCache {
 
     /// Approximate cost for a Run against a *different* provider, derived from whichever
     /// OpenRouter listing looks like the same model. Always an estimate (see module docs).
+    ///
+    /// Tries an exact (date-normalized) match first; if `model_id` is a rolling `-latest` alias
+    /// (e.g. Mistral's `ministral-3b-latest`) that didn't match anything directly — OpenRouter
+    /// itself only lists dated snapshots like `ministral-3b-2512`, no bare `-latest` entry —
+    /// falls back to whichever dated snapshot for that same base name looks newest.
     pub async fn estimate_fallback(
         &self,
         provider: ProviderId,
         model_id: &str,
         usage: &Usage,
     ) -> Option<f64> {
-        let key = (provider, normalize_model_id(model_id));
+        let exact_key = (provider, normalize_model_id(model_id));
+        let latest_key =
+            strip_latest_alias(model_id).map(|base| (provider, normalize_model_id(base)));
+
         self.with_loaded(|data| {
             data.fallback_by_provider
-                .get(&key)
+                .get(&exact_key)
+                .or_else(|| {
+                    latest_key
+                        .as_ref()
+                        .and_then(|key| data.latest_by_provider.get(key))
+                })
                 .map(|price| price.cost(usage))
         })
         .await
@@ -204,6 +222,31 @@ fn strip_trailing_date(id: &str) -> &str {
     }
 }
 
+/// If `id` ends with a rolling `-latest` alias (Mistral's convention: `mistral-large-latest`,
+/// `ministral-3b-latest`, ...), returns the base name without it.
+fn strip_latest_alias(id: &str) -> Option<&str> {
+    id.strip_suffix("-latest")
+        .or_else(|| id.strip_suffix("-Latest"))
+        .or_else(|| id.strip_suffix("-LATEST"))
+}
+
+/// Splits a trailing dash-separated run of 2–8 digits off `id` (a version-ish suffix like
+/// Mistral's `-2512` snapshot tag or a full `-20260514` release date), returning the base and
+/// the digits parsed as a number so multiple candidates for the same base can be compared —
+/// larger means newer, true for both `YYMM`-style and `YYYYMMDD`-style suffixes. `None` if the
+/// id doesn't end in a separated digit run of that length (e.g. a bare `mistral-large` with no
+/// version at all, which we can't rank against dated siblings and so simply skip).
+fn trailing_numeric_suffix(id: &str) -> Option<(&str, u64)> {
+    let digits_at_end = id.chars().rev().take_while(|c| c.is_ascii_digit()).count();
+    if !(2..=8).contains(&digits_at_end) {
+        return None;
+    }
+    let cut = id.len() - digits_at_end;
+    let base = id[..cut].strip_suffix('-')?;
+    let version: u64 = id[cut..].parse().ok()?;
+    Some((base, version))
+}
+
 #[derive(Deserialize)]
 struct ModelsResponse {
     data: Vec<ModelListing>,
@@ -228,6 +271,10 @@ fn build_pricing_data(body: &str) -> AppResult<PricingData> {
 
     let mut openrouter_exact = HashMap::new();
     let mut fallback_by_provider = HashMap::new();
+    // Tracks, per (provider, normalized base), the highest version number seen so far and its
+    // price — folded down to just the price in the returned `PricingData` once every listing
+    // has been considered.
+    let mut latest_candidates: HashMap<(ProviderId, String), (u64, ModelPrice)> = HashMap::new();
 
     for listing in parsed.data {
         let Some(price) = parse_price(&listing.pricing) else {
@@ -239,15 +286,31 @@ fn build_pricing_data(body: &str) -> AppResult<PricingData> {
                 let key = (target_provider, normalize_model_id(native_id));
                 // First match wins on a collision — good enough for a best-effort estimate.
                 fallback_by_provider.entry(key).or_insert(price);
+
+                if let Some((base, version)) = trailing_numeric_suffix(native_id) {
+                    let base_key = (target_provider, normalize_model_id(base));
+                    let is_newer = latest_candidates
+                        .get(&base_key)
+                        .is_none_or(|&(best_version, _)| version > best_version);
+                    if is_newer {
+                        latest_candidates.insert(base_key, (version, price));
+                    }
+                }
             }
         }
 
         openrouter_exact.insert(listing.id, price);
     }
 
+    let latest_by_provider = latest_candidates
+        .into_iter()
+        .map(|(key, (_, price))| (key, price))
+        .collect();
+
     Ok(PricingData {
         openrouter_exact,
         fallback_by_provider,
+        latest_by_provider,
     })
 }
 
@@ -283,6 +346,14 @@ mod tests {
             {
                 "id": "unmapped-vendor/some-model",
                 "pricing": { "prompt": "0.000001", "completion": "0.000002" }
+            },
+            {
+                "id": "mistralai/ministral-3b-2407",
+                "pricing": { "prompt": "0.0000002", "completion": "0.0000002" }
+            },
+            {
+                "id": "mistralai/ministral-3b-2512",
+                "pricing": { "prompt": "0.0000001", "completion": "0.0000001" }
             }
         ]
     }"#;
@@ -300,6 +371,29 @@ mod tests {
     fn does_not_strip_short_numeric_suffixes_that_are_not_dates() {
         // "gpt-4o" ends in 2 digits, not 8 — must be left alone.
         assert_eq!(strip_trailing_date("gpt-4o"), "gpt-4o");
+    }
+
+    #[test]
+    fn strips_the_latest_alias_suffix() {
+        assert_eq!(
+            strip_latest_alias("ministral-3b-latest"),
+            Some("ministral-3b")
+        );
+        assert_eq!(strip_latest_alias("mistral-large-2407"), None);
+    }
+
+    #[test]
+    fn extracts_a_trailing_version_number_for_comparison() {
+        assert_eq!(
+            trailing_numeric_suffix("ministral-3b-2512"),
+            Some(("ministral-3b", 2512))
+        );
+        assert_eq!(
+            trailing_numeric_suffix("claude-opus-4-5-20260514"),
+            Some(("claude-opus-4-5", 20260514))
+        );
+        // No separated trailing digit run at all -> nothing to rank against siblings.
+        assert_eq!(trailing_numeric_suffix("mistral-large"), None);
     }
 
     #[test]
@@ -348,6 +442,30 @@ mod tests {
             .await
             .expect("must fuzzy-match the Anthropic listing");
         assert!((approx - 30.0).abs() < 1e-9);
+    }
+
+    #[tokio::test]
+    async fn latest_alias_resolves_to_the_newest_dated_snapshot() {
+        // Mirrors the real bug report: Mistral's API returns a rolling `ministral-3b-latest`
+        // alias, but OpenRouter only lists dated snapshots (`-2407`, `-2512`) — never a bare
+        // `-latest` entry — so a direct normalized match never hits. The estimate should still
+        // resolve, using whichever dated snapshot looks newest (2512 > 2407 here).
+        let cache = OpenRouterPricingCache::new();
+        let data = build_pricing_data(SAMPLE_RESPONSE).unwrap();
+        *cache.test_override.lock().unwrap() = Some(data);
+
+        let usage = Usage {
+            input_tokens: 1_000_000,
+            output_tokens: 1_000_000,
+        };
+
+        let cost = cache
+            .estimate_fallback(ProviderId::Mistral, "ministral-3b-latest", &usage)
+            .await
+            .expect("must resolve via the newest dated snapshot");
+
+        // The 2512 snapshot ($0.0000001/$0.0000001), not the older 2407 one ($0.0000002/...).
+        assert!((cost - 0.2).abs() < 1e-9);
     }
 
     #[tokio::test]
