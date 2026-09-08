@@ -187,6 +187,17 @@ which were never actually set up despite being in the original architecture plan
   users (including the AppImage workaround for Arch-based distros, called out explicitly since
   the user runs Omarchy), and an explicit "not yet done" section (code signing, Arch/AUR package,
   auto-update) so it's clear these are deliberate omissions, not oversights.
+- [x] **Real app icon** — replaced the default Tauri scaffold icon (never customized since Step 0)
+  across every bundled format. User generated a source image from a prompt (dark Nord-themed
+  square, a terminal `>` chevron + cursor accent, matching the app's own dark-mode identity);
+  came back as a 1024×1024 JPEG with white left over in the 4 rounded-corner cutouts. Converted
+  to PNG and made those corners transparent (thresholded distance-from-white, with a soft
+  falloff for anti-aliasing — verified first that white pixels existed *only* in the 4 corner
+  regions, nowhere in the artwork itself, so a global threshold couldn't eat into the design).
+  `npx tauri icon app-icon.png` regenerated every platform's icon files from that one source;
+  discarded the iOS/Android icon sets it also generates (out of scope — desktop-only app).
+  Source `app-icon.png` kept at the repo root for future re-generation. User plans to touch up
+  a few small corner artifacts by hand later (Photoshop) — not blocking.
 
 ## Step 11 — Documentation
 

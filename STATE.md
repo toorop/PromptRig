@@ -33,8 +33,15 @@ first, both now done, tested, and pushed, 2026-09-08:
    `capabilities/default.json`, so `data-tauri-drag-region` failed with an unhandled permission
    rejection visible in the dev console.
 
-**Step 11 documentation is the natural next step**, unless the user wants to cut a first tagged
-release now to prove the release pipeline end-to-end.
+A third pre-release item followed: a real app icon (the default Tauri scaffold icon had never
+been replaced). User generated a source image, it needed a JPEG→PNG conversion and the white
+corner cutouts made transparent — done, `npx tauri icon` regenerated every bundled format. User
+noticed minor corner artifacts they'll fix by hand in Photoshop later — explicitly not blocking.
+**Committed locally but deliberately not pushed** — the user's call, to avoid waiting on CI for
+a change with nothing meaningful to verify.
+
+Now starting **Step 11 (documentation)** — the user confirmed this is next ("je pense que tu
+peux rédiger la doc?").
 
 ## Done so far
 
@@ -789,6 +796,34 @@ implemented later the same day; committed & pushed):
   dernier user prompt." `npm run build` clean; **user-verified with a real app restart** (typed
   content, closed the app, reopened it, confirmed it came back) — the strongest possible test
   for a "survives a restart" feature.
+
+**Real app icon** (committed locally, deliberately **not pushed** yet — see below):
+- The default Tauri scaffold icon (generic Tauri logo) had never been replaced since Step 0 —
+  the user flagged this as needed before any real release. Gave them an image-generation prompt
+  matching the app's established dark Nord identity (Polar Night `#2E3440` background, Frost
+  `#88C0D0` accent): a bold terminal `>` chevron + cursor block, flat/geometric, no text, full
+  bleed, 1024×1024.
+- User's result came back as a JPEG with rounded corners baked in, leaving pure white in the 4
+  cut-off corner triangles. Before touching it, checked (via a NumPy pixel scan) that near-white
+  pixels existed *only* in those 4 corner regions and nowhere in the actual artwork (chevron,
+  cursor, background all far from white) — confirming a global white-distance threshold couldn't
+  accidentally eat into the design. Converted JPEG→RGBA PNG with alpha computed from distance-
+  from-white (clamped/scaled, not a hard cutoff, so the rounded-corner edge stays anti-aliased
+  instead of jagged). Verified by compositing the result over a solid red background and
+  confirming red showed through cleanly in the corners only.
+- `npx tauri icon app-icon.png` (Tauri's own icon-generation command) regenerated every bundled
+  format (`.icns`, `.ico`, all the PNG sizes, the Windows Store `Square*Logo.png` set) from that
+  one source image. It also generates iOS/Android icon sets by default — deleted those, since
+  this is a desktop-only app (no mobile target configured anywhere in `tauri.conf.json`).
+  Kept `app-icon.png` at the repo root as the regeneratable source.
+- `cargo check` clean; verified live via a `tauri dev` restart (icon file changes aren't picked
+  up by cargo's incremental build without a real restart). User spotted a few small corner
+  artifacts in the result and plans to touch them up by hand in Photoshop later — explicitly
+  not blocking, not something to iterate on further right now.
+- **User explicitly asked to commit but not push this one**: "je pense qu'il n'y a pas de
+  vérification importante à faire et ça nous fait perdre du temps à chaque fois d'attendre que
+  le CI se termine." First time in this project a commit was deliberately left unpushed — worth
+  remembering for the next session that `master` may be locally ahead of `origin/master`.
 
 ## Known issues / incidents
 
