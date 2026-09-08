@@ -194,10 +194,13 @@ Discussed 2026-09-07, explicitly not to be implemented until the user asks:
   it; at most, consult it as a reference/cross-check when hand-updating our own `pricing.json`
   (manually or via the future update-bot).
 
-### Saved prompt sets ("Tests") — user idea, 2026-09-07
+### Saved prompt sets ("Tests") — user idea, 2026-09-07 (reaffirmed 2026-09-08)
 
 Save a named (system prompt, user prompt) pair with a description/notes field, so it can be
 recalled later — **not** tied to a specific provider/model, just the prompt content itself.
+Reaffirmed the next day (independently, before checking whether it was already noted) as an
+"archive" you can reload prompts from in a later session — and explicitly, **must support
+deleting a saved entry**, not just creating/recalling.
 
 This is the concrete feature that would finally exercise the `prompts` and `test_cases` tables
 already sitting in the schema since Step 3 (created ahead of use, per docs/start.md's Prompt /
@@ -228,3 +231,32 @@ async functions under the Tauri command layer, callable from anywhere, not wired
 UI flow). The user re-raised it independently after using the tool for a while, which is a good
 signal it's a real want, not just a spec artifact — but per the spec's own instructions, still
 explicitly deferred past the MVP.
+
+### App versioning strategy — user idea, 2026-09-08
+
+No versioning scheme decided yet (what "0.1.0" means, when/how it bumps, relationship to git
+tags). Ties directly into Step 10's release process (`.github/workflows/release.yml` triggers
+on a tag push) — needs a decision on semver discipline and where the version number is bumped
+(`package.json` + `src-tauri/Cargo.toml` + `tauri.conf.json` all currently say `0.1.0`
+independently; decide whether/how to keep them in sync) before Step 10 is built out for real.
+
+### Auto-update mechanism — user idea, 2026-09-08
+
+Something like Electron's auto-updater, so installed users get new versions without manually
+re-downloading. This is exactly docs/start.md's own line: "Prépare la structure de façon à
+pouvoir ajouter ultérieurement la signature des binaires et l'auto-update" — already anticipated
+in the original spec as a Step-10-adjacent follow-up, not MVP. Concretely: Tauri has an official
+`tauri-plugin-updater` for this, which needs signed release artifacts and a hosted update
+manifest (`latest.json`, typically published alongside GitHub Release artifacts) — depends on
+Step 10's release pipeline existing first, and on deciding the versioning strategy above.
+
+### Persist the current prompt draft across app restarts — user idea, 2026-09-08
+
+`stores/promptDraft.ts` (system prompt, user prompt, params — shared between Playground and
+Compare since Step 6) is in-memory only right now: closing and reopening the app loses whatever
+you were working on. The user wants this to survive a restart, the same way the "last used
+provider/model" selection already does via `localStorage` (see `PlaygroundView.vue`'s
+`loadLastSelection`/`saveLastSelection`). Likely the simplest of these four new ideas to build
+when picked up: read the draft from `localStorage` on store init, write-through on change.
+Distinct from the "saved prompt sets" idea above — this is about *not losing your current
+in-progress draft*, not an explicit named archive of multiple saved prompts.

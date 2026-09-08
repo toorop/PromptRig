@@ -10,12 +10,15 @@ approved by the user.
 
 ## Current step
 
-Mistral, OpenRouter, Anthropic, and Gemini are all done, committed, pushed, and **now all four
-fully verified end to end with real keys** (Mistral's earlier `429` turned out to be a
-transient account-side propagation delay — retesting later worked fine). The generic
-OpenAI-compatible endpoint is deliberately deferred (see below) — Step 8's provider rollout is
-effectively done for now, modulo pricing entries. Deciding what to tackle next (Step 9 UI
-polish, or something else) with the user.
+New session, 2026-09-08 (~1-1.5h planned). Step 8 (providers) is done as of yesterday. Before
+starting Step 9 (UI polish — a `frontend-design` skill got installed specifically for this),
+the user front-loaded four more future ideas to log (not implement) — see TODO.md's Deferred
+ideas section for full detail: app versioning strategy, an auto-update mechanism (echoes
+docs/start.md's own deferred auto-update line), persisting the current prompt draft across app
+restarts (distinct from the separately-already-noted "saved prompt archive" idea), and a
+reaffirmed/refined version of the saved-prompt-sets idea (now explicitly requires delete
+support). One thing the user asked about turned out to already be done: Playground/Compare
+prompt sharing (built yesterday via `stores/promptDraft.ts`).
 
 ## Done so far
 
@@ -444,16 +447,12 @@ polish, or something else) with the user.
   addition (a user-defined list, not a fixed enum variant), with Settings needing to show the
   user-given name per instance plus an "add another" action. Not implemented; noted in TODO.md.
 
-## In progress / not yet done
-
-- Nothing in progress right now. All Step 8 provider work is committed and pushed. The user
-  wants to pick up Step 9 (UI polish) tomorrow rather than tonight — session likely winding
-  down. Two new future ideas captured in TODO.md's "Deferred ideas" section (not implemented):
-  saved named prompt sets ("Tests" — system+user prompt + description, recallable later; ties
-  into the unused `prompts`/`test_cases` tables from Step 3, but the user's actual ask is
-  simpler than the spec's original Prompt/Test-Case split, worth re-checking before building),
-  and AI-assisted system prompt improvement (a concrete restatement of docs/start.md's already-
-  documented, explicitly-MVP-deferred "optimisation automatique" section).
+- Nothing in progress right now. All Step 8 provider work is committed and pushed. About to
+  start Step 9 (UI polish). Six future ideas now logged in TODO.md's "Deferred ideas" section
+  (none implemented): saved named prompt sets ("Tests", now with explicit delete support),
+  AI-assisted system prompt improvement, app versioning strategy, an auto-update mechanism,
+  persisting the current prompt draft across app restarts, and (from Step 8) using OpenRouter's
+  pricing as a cross-provider cost estimate.
 
 ## Known issues / incidents
 
