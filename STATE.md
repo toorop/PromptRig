@@ -11,11 +11,11 @@ approved by the user.
 ## Current step
 
 Step 9 (UI polish), in progress, 2026-09-08. Self-hosted typography, the light/dark theme toggle
-(dark by default), a pass of real tooltips + param validation, and the whole-window-scroll fix
-(see below) are done, committed, and pushed. Currently mid-iteration on Select/Input toolbar
-font sizing, which the user has taken over by hand (see TODO.md) — don't touch those classes
-without being asked. User says there's "au moins un petit truc" more to fix on the UI before
-this pass wraps up — not yet specified what.
+(dark by default), a pass of real tooltips + param validation, the whole-window-scroll fix, and
+now a frameless window with a custom close button (see below) are done, committed, and pushed.
+Currently mid-iteration on Select/Input toolbar font sizing, which the user has taken over by
+hand (see TODO.md) — don't touch those classes without being asked. Otherwise nothing specific
+queued for the next UI item; ask what's next.
 
 ## Done so far
 
@@ -568,6 +568,32 @@ this pass wraps up — not yet specified what.
 - `npm run build` clean throughout both attempts. Verified live via full `tauri dev` restarts
   (not HMR) at each step, given the dev-server-vs-build CSS-ordering discrepancy found along the
   way; user confirmed the final version works ("c'est parfait") before requesting the commit.
+
+**Step 9 (in progress) — frameless window** (committed & pushed):
+- User's idea, described as "headless" (they were thinking of Electron's terminology) — remove
+  the native OS title bar (app name + close/minimize/maximize) for a cleaner look. Confirmed
+  before implementing (per the user's explicit request not to act until validated) that this is
+  Tauri's `decorations: false` window option, and clarified scope via two questions: **close
+  button only** (no minimize/maximize — the user doesn't need them), and **design with all 3
+  OSes in mind** even though only Linux can actually be tested right now.
+- `src-tauri/tauri.conf.json`: `"decorations": false` added to the main window config.
+- `src-tauri/capabilities/default.json`: added `"core:window:allow-close"` (confirmed as a real
+  permission identifier by grepping the generated `gen/schemas/desktop-schema.json` — `core:default`
+  alone doesn't cover window-close under Tauri v2's capability/ACL system).
+- `App.vue`: the top nav now doubles as the title bar. `data-tauri-drag-region` on the `<nav>`
+  makes its empty space draggable (interactive children — the router links, theme toggle, close
+  button — are separate elements and keep working normally, since Tauri's drag-region handling
+  only intercepts the exact tagged element, not its children). New close button (`@lucide/vue`'s
+  `X` icon, `getCurrentWindow().close()` from `@tauri-apps/api/window`, red-tinted hover) added
+  next to the existing theme toggle — the single window control, deliberately no
+  minimize/maximize per the user's choice.
+- `cargo check` and `npm run build` clean; full `tauri dev` restart required (window-decoration
+  and capability changes are Rust/config-side, not picked up by frontend HMR).
+- **User-confirmed live**: the close button works correctly. Window-dragging couldn't be
+  confirmed on the user's setup — they run Omarchy (an Arch-based Hyprland distro, a tiling
+  window manager), where free-floating drag doesn't apply the same way it would under a
+  traditional floating WM/DE — not a bug, just not meaningfully testable on that setup. User's
+  verdict on the visual result: "beaucoup plus beau."
 
 ## Known issues / incidents
 
