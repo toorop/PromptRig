@@ -10,7 +10,7 @@ pub mod secrets;
 use chrono::{DateTime, Utc};
 
 use crate::domain::{AppError, AppResult, ExperimentId, GenerationParams, ProviderId, RunResult};
-use crate::pricing::PricingTable;
+use crate::pricing::{OpenRouterPricingCache, PricingTable};
 use crate::secrets as secrets_store;
 use crate::storage::runs_repo::NewRun;
 
@@ -36,8 +36,14 @@ fn require_api_key(provider: ProviderId) -> AppResult<String> {
 /// a solo Playground run outright, but shouldn't sink an entire comparison — see
 /// `experiments::run_column`), but converting a finished outcome into a `NewRun` is identical
 /// either way.
+///
+/// Cost is resolved in three steps, cheapest/most-trustworthy first: our own hand-curated
+/// `pricing.json` (exact), then — for a Run against OpenRouter itself — OpenRouter's own real
+/// price for that model (also exact, just fetched dynamically), then — for every other
+/// provider — an approximation derived from OpenRouter's price for what looks like the same
+/// model elsewhere (see `pricing::openrouter_fallback`; always flagged via `cost_is_estimate`).
 #[allow(clippy::too_many_arguments)]
-fn build_new_run(
+async fn build_new_run(
     experiment_id: Option<ExperimentId>,
     provider: ProviderId,
     model_id: String,
@@ -47,16 +53,32 @@ fn build_new_run(
     started_at: DateTime<Utc>,
     outcome: AppResult<RunResult>,
     pricing: &PricingTable,
+    openrouter_pricing: &OpenRouterPricingCache,
 ) -> NewRun {
     let (result, error) = match outcome {
         Ok(result) => (Some(result), None),
         Err(err) => (None, Some(err.to_string())),
     };
 
-    let estimated_cost_usd = result
-        .as_ref()
-        .and_then(|result| result.usage)
-        .and_then(|usage| pricing.estimate_cost(provider, &model_id, &usage));
+    let usage = result.as_ref().and_then(|result| result.usage);
+    let (estimated_cost_usd, cost_is_estimate) = match usage {
+        None => (None, false),
+        Some(usage) => {
+            if let Some(cost) = pricing.estimate_cost(provider, &model_id, &usage) {
+                (Some(cost), false)
+            } else if provider == ProviderId::OpenRouter {
+                let cost = openrouter_pricing
+                    .estimate_for_openrouter(&model_id, &usage)
+                    .await;
+                (cost, false)
+            } else {
+                let cost = openrouter_pricing
+                    .estimate_fallback(provider, &model_id, &usage)
+                    .await;
+                (cost, cost.is_some())
+            }
+        }
+    };
 
     NewRun {
         experiment_id,
@@ -69,5 +91,6 @@ fn build_new_run(
         result,
         error,
         estimated_cost_usd,
+        cost_is_estimate,
     }
 }

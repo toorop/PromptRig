@@ -282,6 +282,14 @@ export type Run_Deserialize = {
 	 *  `None` when there's no usage yet, or no pricing data for this model.
 	 */
 	estimated_cost_usd: number | null,
+	/**
+	 *  `true` when `estimated_cost_usd` came from `pricing::openrouter_fallback` (another
+	 *  provider's cost approximated from OpenRouter's published price for the equivalent
+	 *  model) rather than our own hand-curated `pricing.json` or, for a Run that itself used
+	 *  OpenRouter, OpenRouter's own real price. Always `false` when `estimated_cost_usd` is
+	 *  `None`. The frontend uses this to show a "≈" and a disclosure tooltip.
+	 */
+	cost_is_estimate: boolean,
 };
 
 /**
@@ -310,6 +318,14 @@ export type Run_Serialize = {
 	 *  `None` when there's no usage yet, or no pricing data for this model.
 	 */
 	estimated_cost_usd: number | null,
+	/**
+	 *  `true` when `estimated_cost_usd` came from `pricing::openrouter_fallback` (another
+	 *  provider's cost approximated from OpenRouter's published price for the equivalent
+	 *  model) rather than our own hand-curated `pricing.json` or, for a Run that itself used
+	 *  OpenRouter, OpenRouter's own real price. Always `false` when `estimated_cost_usd` is
+	 *  `None`. The frontend uses this to show a "≈" and a disclosure tooltip.
+	 */
+	cost_is_estimate: boolean,
 };
 
 /**  Token counts reported by a provider for one generation call. */

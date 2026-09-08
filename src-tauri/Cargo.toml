@@ -38,6 +38,11 @@ tauri-specta = { version = "=2.0.0-rc.25", features = ["derive", "typescript"] }
 specta = { version = "=2.0.0-rc.25", features = ["derive", "chrono"] }
 specta-typescript = "0.0.12"
 futures = "0.3.34"
+# Only the "sync" feature: `tokio::sync::Mutex` backs pricing::OpenRouterPricingCache's
+# session-lifetime cache (needs an async-aware mutex, since loading it does a network fetch
+# while the lock is held). Tauri already depends on tokio internally; this just makes it a
+# direct dependency too, unified with the fuller-featured dev-dependency below for tests.
+tokio = { version = "1.53.1", features = ["sync"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

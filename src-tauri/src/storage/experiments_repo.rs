@@ -48,6 +48,7 @@ mod tests {
             result: None,
             error: Some("not actually run".into()),
             estimated_cost_usd: None,
+            cost_is_estimate: false,
         }
     }
 

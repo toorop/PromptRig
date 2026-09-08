@@ -11,7 +11,10 @@ use crate::domain::{AppError, AppResult};
 /// only applies the new ones. Add a new `M::up(...)` entry — never edit an existing one — when
 /// the schema needs to change.
 fn migrations() -> Migrations<'static> {
-    Migrations::new(vec![M::up(include_str!("migrations/0001_initial.sql"))])
+    Migrations::new(vec![
+        M::up(include_str!("migrations/0001_initial.sql")),
+        M::up(include_str!("migrations/0002_add_cost_is_estimate.sql")),
+    ])
 }
 
 /// A handle to the app's SQLite database.

@@ -4,6 +4,7 @@ import type { Run } from "@/lib/bindings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const props = defineProps<{
   run: Run | null;
@@ -13,9 +14,12 @@ const props = defineProps<{
 
 const usage = computed(() => props.run?.result?.usage ?? null);
 
-function formatCost(cost: number | null | undefined): string {
+// A "≈" prefix marks a cost derived from OpenRouter's own pricing for a similar model on a
+// *different* provider (see the Rust side's pricing::openrouter_fallback) rather than an exact,
+// hand-curated price — the disclosure tooltip below explains why it can run a bit high.
+function formatCost(cost: number | null | undefined, isEstimate: boolean): string {
   if (cost === null || cost === undefined) return "—";
-  return `$${cost.toFixed(6)}`;
+  return `${isEstimate ? "≈ " : ""}$${cost.toFixed(6)}`;
 }
 
 // Whatever text is actually on screen right now — a successful result, a Run's own error (e.g.
@@ -63,7 +67,19 @@ function forcePlainTextCopy(event: ClipboardEvent) {
           <Badge v-if="usage" variant="secondary">
             {{ usage.input_tokens }} in / {{ usage.output_tokens }} out
           </Badge>
-          <Badge variant="secondary">{{ formatCost(run.estimated_cost_usd) }}</Badge>
+          <Tooltip v-if="run.cost_is_estimate">
+            <TooltipTrigger as-child>
+              <Badge variant="secondary" class="cursor-help">
+                {{ formatCost(run.estimated_cost_usd, true) }}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              Approximate — no official pricing for this model, so this uses OpenRouter's price
+              for the closest match. Usually a ceiling (OpenRouter adds its own margin), not the
+              exact provider cost.
+            </TooltipContent>
+          </Tooltip>
+          <Badge v-else variant="secondary">{{ formatCost(run.estimated_cost_usd, false) }}</Badge>
         </div>
       </template>
       <p v-else class="font-mono text-sm text-muted-foreground">Run a prompt to see the result here.</p>

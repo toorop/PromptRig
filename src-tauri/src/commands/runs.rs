@@ -4,7 +4,7 @@ use chrono::Utc;
 use tauri::State;
 
 use crate::domain::{AppError, GenerationParams, ProviderId, Run};
-use crate::pricing::PricingTable;
+use crate::pricing::{OpenRouterPricingCache, PricingTable};
 use crate::providers::ProviderRegistry;
 use crate::storage::{runs_repo, Database};
 
@@ -25,6 +25,7 @@ pub async fn run_generation(
     input: RunGenerationInput,
     providers: State<'_, ProviderRegistry>,
     pricing: State<'_, PricingTable>,
+    openrouter_pricing: State<'_, OpenRouterPricingCache>,
     db: State<'_, Database>,
 ) -> Result<Run, AppError> {
     let api_key = super::require_api_key(input.provider)?;
@@ -51,7 +52,9 @@ pub async fn run_generation(
         started_at,
         outcome,
         &pricing,
-    );
+        &openrouter_pricing,
+    )
+    .await;
 
     let id = runs_repo::insert_run(&db, new_run).await?;
     runs_repo::get_run(&db, id)

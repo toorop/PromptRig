@@ -15,14 +15,18 @@ correct... on peut considérer le point 9 pour l'instant fait"), with two known-
 on purpose: light-theme contrast (still unresolved, kept open per the user's explicit choice —
 see TODO.md) and Select/Input toolbar font sizing (the user is hand-tuning it themselves).
 
-Now in Step 10 (CI/CD), 2026-09-08. `ci.yml` and `release.yml` are both written, verified
-locally (YAML syntax + every check they run), committed, and pushed — see below for the full
-decision trail (no code signing yet, no Arch/AUR package yet, CI frontend checks limited to
-what already exists). `docs/release.md` was written ahead of Step 11 since it documents exactly
-the process this step needed to define. **Not yet tested for real**: `release.yml` has never
-actually run, since doing so requires pushing a real `v*.*.*` tag — there's no version worth
-releasing yet. Next natural step: keep going on Step 10/11, or the user may want to actually cut
-a first tagged release to prove the pipeline end-to-end — ask which.
+Step 10 (CI/CD) is functionally done, 2026-09-08. `ci.yml` and `release.yml` are both written,
+committed, and pushed. `ci.yml` has now run for real on GitHub (all 3 jobs green — see below);
+`release.yml` still hasn't (needs a real `v*.*.*` tag push, and there's no version worth
+releasing yet).
+
+Before moving to Step 11 (documentation), the user asked for one more MVP-blocking feature first
+("avant de faire une release... il y a un truc que j'aimerais que l'on fasse pour le MVP... régler
+cette histoire de tarifs"): cross-provider cost estimates via OpenRouter's pricing. Implemented,
+tested, and confirmed working live by the user ("Ça fonctionne, bravo!") — see below for the
+full design. This was the last deferred idea blocking a first release; **Step 11 documentation
+is the natural next step**, unless the user wants to cut a first tagged release now to prove the
+release pipeline end-to-end.
 
 ## Done so far
 
@@ -655,6 +659,71 @@ a first tagged release to prove the pipeline end-to-end — ask which.
   the Arch/AUR package, and auto-update as deliberate omissions.
 - TODO.md's "App versioning strategy" deferred idea marked resolved (pointing at this step and
   `docs/release.md`); a new "Native Arch Linux / AUR package" deferred idea added.
+- **Pushing `.github/workflows/*.yml` was rejected once** ("refusing to allow an OAuth App to
+  create or update workflow... without `workflow` scope") — the `gh` CLI's stored OAuth token
+  lacked the `workflow` scope. Fixed by the user running `gh auth refresh -h github.com -s
+  workflow` themselves (needs a browser-based authorization, not something to do on their
+  behalf); the push then succeeded.
+- **`ci.yml` verified for real on GitHub, not just locally**: watched the actual run
+  (`gh run watch`) after pushing — all 3 jobs green (Frontend 24s, Version consistency 3s, Rust
+  fmt/clippy/test ~10min, expected for a first cold-cache compile on a fresh runner). Only a
+  minor deprecation annotation (Node 20 runtime warning on `actions/checkout@v4`/`setup-node@v4`)
+  — not a failure, worth bumping to `@v5` at some point but not urgent.
+
+**Cross-provider cost estimates via OpenRouter pricing** (implemented ahead of Step 11, at the
+user's explicit request, 2026-09-08; committed & pushed):
+- The user's own words for why this couldn't wait for a later polish pass: "avant de faire une
+  release, pour moi, il y a un truc que j'aimerais que l'on fasse pour le MVP... régler cette
+  histoire de tarifs parce que c'est quelque chose d'important d'avoir le prix de la requête."
+  Confirmed the approach with them first (reaffirming the Step-8-era deferred idea): use
+  OpenRouter's own published pricing as an approximate stand-in for providers that don't expose
+  pricing themselves (Anthropic, Gemini, Mistral), explicitly disclosed as a ceiling estimate
+  via a tooltip, never presented as exact.
+- **The real design problem was matching model ids across vendors**, not fetching the data
+  (OpenRouter's public `/api/v1/models` — verified live via `curl`, no API key needed — already
+  returns per-model `pricing.prompt`/`pricing.completion` in USD/token for ~430 models). Verified
+  directly against the real endpoint that OpenRouter's ids are `"<vendor-slug>/<model>"` (e.g.
+  `anthropic/claude-opus-4.5`), while a provider's own native id is often shaped differently
+  (checked Anthropic's real model-listing code: ids like `claude-opus-4-5-<date>`, dashes and a
+  release-date suffix OpenRouter's own listing doesn't carry) — a naive "strip the vendor
+  prefix and compare" would rarely match. Solved with `normalize_model_id` (lowercase, strip all
+  non-alphanumeric characters, drop a trailing 8-digit date suffix) applied to both sides before
+  comparing. Deliberately conservative: a miss just falls back to "no price" (today's behavior)
+  rather than ever risking a wrong-model match.
+- New module `src-tauri/src/pricing/openrouter_fallback.rs` — `OpenRouterPricingCache`, fetched
+  and cached once per app session (same "session-lifetime, refresh on restart" pattern as the
+  model-list cache from Step 8), guarded by a `tokio::sync::Mutex` (needed since loading it does
+  a network fetch while the lock is held — a plain `std::sync::Mutex` can't be held across an
+  `.await`). Builds two lookups from one fetch: OpenRouter's own model id → its real price (used
+  when a Run itself targets OpenRouter — exact, not an estimate) and `(target ProviderId,
+  normalized native id)` → OpenRouter's price for the closest-looking listing (used for every
+  other provider — always an estimate). A failed fetch (offline, etc.) is remembered for the
+  rest of the session rather than retried on every single Run.
+- `pricing::ModelPrice` (previously private to `pricing::mod`) became `pub(crate)` with its cost
+  formula extracted onto the type itself (`ModelPrice::cost(&self, usage)`), shared by both the
+  static `pricing.json`-backed table and the new dynamic cache instead of duplicating the
+  input/output-tokens-times-price arithmetic.
+- **New domain field**: `Run.cost_is_estimate: bool` (migration `0002_add_cost_is_estimate.sql`,
+  `runs.cost_is_estimate INTEGER NOT NULL DEFAULT 0`) — `false` for an exact price (our own
+  `pricing.json`, or OpenRouter's own real price for its own Runs), `true` only when the number
+  came from the cross-provider fallback. `commands::build_new_run` (shared by `run_generation`
+  and `run_experiment`/`run_column`) became `async fn` to await the new cache's lookups, tried
+  in order: static table → (if provider is OpenRouter) OpenRouter's own exact price → fallback
+  estimate. `OpenRouterPricingCache` added as new Tauri-managed state in `lib.rs`, threaded
+  through `commands/runs.rs` and `commands/experiments.rs` alongside the existing `PricingTable`.
+- `ResultPanel.vue`: the cost `Badge` shows a `≈` prefix and wraps in a `Tooltip` ("Approximate —
+  no official pricing for this model, so this uses OpenRouter's price for the closest match.
+  Usually a ceiling... not the exact provider cost") only when `run.cost_is_estimate` is true —
+  otherwise unchanged. `src/lib/bindings.ts` regenerated automatically via a `tauri dev` restart,
+  picked up `cost_is_estimate: boolean` on `Run` with no manual intervention needed.
+- 5 new Rust unit tests (`pricing::openrouter_fallback`): normalization (including the
+  date-suffix-stripping edge case, and that a short non-date numeric suffix like `gpt-4o`'s "4o"
+  isn't wrongly stripped), building both lookups from a sample API response, the exact-vs-
+  estimate distinction, and the "unknown model returns `None`, never a wrong price" guarantee.
+  41 tests total (was 36), all passing; `cargo fmt --check`/`clippy --all-targets -- -D
+  warnings` both clean. `npm run build` clean; verified live via `tauri dev` — user tested
+  Anthropic/Gemini/Mistral and confirmed the estimate appears correctly ("Ça fonctionne,
+  bravo!").
 
 ## Known issues / incidents
 

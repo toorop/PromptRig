@@ -11,11 +11,15 @@
 //! means `estimate_cost` returns `None` (see docs/start.md: "il n'est pas nécessaire que tous
 //! les providers donnent immédiatement un coût exact").
 
+pub mod openrouter_fallback;
+
 use std::collections::HashMap;
 
 use serde::Deserialize;
 
 use crate::domain::{AppError, AppResult, ProviderId, Usage};
+
+pub use openrouter_fallback::OpenRouterPricingCache;
 
 const DEFAULT_PRICING_JSON: &str = include_str!("pricing.json");
 
@@ -32,10 +36,19 @@ struct ModelPriceEntry {
     output_per_million_usd: f64,
 }
 
+/// Shared by both this module's static table and `openrouter_fallback`'s dynamic one.
 #[derive(Debug, Clone, Copy)]
-struct ModelPrice {
-    input_per_million_usd: f64,
-    output_per_million_usd: f64,
+pub(crate) struct ModelPrice {
+    pub(crate) input_per_million_usd: f64,
+    pub(crate) output_per_million_usd: f64,
+}
+
+impl ModelPrice {
+    pub(crate) fn cost(&self, usage: &Usage) -> f64 {
+        let input_cost = (usage.input_tokens as f64 / 1_000_000.0) * self.input_per_million_usd;
+        let output_cost = (usage.output_tokens as f64 / 1_000_000.0) * self.output_per_million_usd;
+        input_cost + output_cost
+    }
 }
 
 /// A loaded price table, keyed by (provider, model id).
@@ -81,11 +94,7 @@ impl PricingTable {
         usage: &Usage,
     ) -> Option<f64> {
         let price = self.prices.get(&(provider, model_id.to_string()))?;
-
-        let input_cost = (usage.input_tokens as f64 / 1_000_000.0) * price.input_per_million_usd;
-        let output_cost = (usage.output_tokens as f64 / 1_000_000.0) * price.output_per_million_usd;
-
-        Some(input_cost + output_cost)
+        Some(price.cost(usage))
     }
 }
 

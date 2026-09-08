@@ -216,15 +216,13 @@ Discussed 2026-09-07, explicitly not to be implemented until the user asks:
 - **A separate bot/agent (the user's idea)** that periodically scrapes/checks provider pricing
   pages and opens a PR (or otherwise updates) that maintained `pricing.json` in the repo — a
   follow-up project of its own, not part of the app itself.
-- **Use OpenRouter's own pricing as an approximate stand-in for other providers**, per the
-  user's idea (reaffirmed 2026-09-07 after seeing Gemini/Anthropic show no cost): OpenRouter's
-  per-model prices for e.g. OpenAI/Gemini/Anthropic models track the vendor's own pricing fairly
-  closely, so they could seed/cross-check our `pricing.json` for providers that don't expose
-  pricing themselves. **Important caveat the user explicitly flagged**: OpenRouter takes a
-  commission on top of the underlying provider's price, so a cost estimate derived from
-  OpenRouter's numbers is a *ceiling*, slightly higher than the real provider cost — must be
-  clearly disclosed as such in the UI (e.g. "≈ estimate via OpenRouter pricing, may be an
-  overestimate"), never presented as an exact figure.
+- **Use OpenRouter's own pricing as an approximate stand-in for other providers — implemented
+  2026-09-08**, ahead of the Step 11 documentation pass, at the user's explicit request before
+  cutting any release ("c'est quelque chose d'important d'avoir le prix de la requête"). See
+  `src-tauri/src/pricing/openrouter_fallback.rs` and STATE.md for the full design (fetch
+  OpenRouter's public `/models` catalog once per session, fuzzy-match native model ids against
+  OpenRouter's `vendor/model` ids, disclose via a new `Run.cost_is_estimate` flag + a "≈" badge
+  and tooltip in the UI). User confirmed it works live ("Ça fonctionne, bravo!").
 - **LiteLLM's `model_prices_and_context_window.json`**
   (raw: `https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json`)
   is a large (thousands of entries, effectively every provider/model) community-maintained

@@ -21,6 +21,7 @@ pub struct NewRun {
     pub result: Option<RunResult>,
     pub error: Option<String>,
     pub estimated_cost_usd: Option<f64>,
+    pub cost_is_estimate: bool,
 }
 
 fn json_err(e: serde_json::Error) -> AppError {
@@ -53,9 +54,9 @@ pub async fn insert_run(db: &Database, run: NewRun) -> AppResult<RunId> {
         conn.execute(
             "INSERT INTO runs (
                 experiment_id, provider, model_id, system_prompt, user_prompt, params_json,
-                result_text, usage_json, duration_ms, ttft_ms, cost_estimate_usd, error,
-                started_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                result_text, usage_json, duration_ms, ttft_ms, cost_estimate_usd,
+                cost_is_estimate, error, started_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 run.experiment_id.map(|id| id.0),
                 run.provider.as_str(),
@@ -68,6 +69,7 @@ pub async fn insert_run(db: &Database, run: NewRun) -> AppResult<RunId> {
                 duration_ms,
                 ttft_ms,
                 run.estimated_cost_usd,
+                run.cost_is_estimate,
                 run.error,
                 run.started_at.to_rfc3339(),
             ],
@@ -96,13 +98,14 @@ type RawRunRow = (
     Option<i64>,
     Option<i64>,
     Option<f64>,
+    bool,
     Option<String>,
     String,
 );
 
 const SELECT_RUN_COLUMNS: &str = "id, experiment_id, provider, model_id, system_prompt, \
     user_prompt, params_json, result_text, usage_json, duration_ms, ttft_ms, cost_estimate_usd, \
-    error, started_at";
+    cost_is_estimate, error, started_at";
 
 fn row_to_run(row: RawRunRow) -> AppResult<Run> {
     let (
@@ -118,6 +121,7 @@ fn row_to_run(row: RawRunRow) -> AppResult<Run> {
         duration_ms,
         ttft_ms,
         cost_estimate_usd,
+        cost_is_estimate,
         error,
         started_at,
     ) = row;
@@ -152,6 +156,7 @@ fn row_to_run(row: RawRunRow) -> AppResult<Run> {
         result,
         error,
         estimated_cost_usd: cost_estimate_usd,
+        cost_is_estimate,
     })
 }
 
@@ -178,6 +183,7 @@ pub async fn get_run(db: &Database, id: RunId) -> AppResult<Option<Run>> {
                         row.get(11)?,
                         row.get(12)?,
                         row.get(13)?,
+                        row.get(14)?,
                     ))
                 },
             )
@@ -219,6 +225,7 @@ mod tests {
             }),
             error: None,
             estimated_cost_usd: Some(0.000123),
+            cost_is_estimate: false,
         }
     }
 
@@ -247,6 +254,7 @@ mod tests {
         assert_eq!(fetched.result, expected.result);
         assert_eq!(fetched.error, expected.error);
         assert_eq!(fetched.estimated_cost_usd, expected.estimated_cost_usd);
+        assert_eq!(fetched.cost_is_estimate, expected.cost_is_estimate);
     }
 
     #[tokio::test]
