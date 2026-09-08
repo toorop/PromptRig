@@ -53,6 +53,24 @@ runs fine after clicking through it.
     ```
     There is no native Arch package (`.pkg.tar.zst`) yet — see "Not yet done" below.
 
+## Troubleshooting
+
+**Linux + NVIDIA + Wayland**: the app can abort immediately on launch with
+`Could not create GBM EGL display: EGL_SUCCESS. Aborting...`. This is a WebKitGTK issue with
+NVIDIA's proprietary driver on Wayland (the driver's GBM support doesn't work the way WebKitGTK
+expects when picking a hardware-accelerated rendering path), not a PromptRig bug — confirmed by
+reproducing it directly with the `v0.1.0` `.AppImage` on this project's own dev machine (NVIDIA +
+Hyprland/Wayland). Fixed by launching with the renderer's DMA-BUF path disabled:
+
+```bash
+WEBKIT_DISABLE_DMABUF_RENDERER=1 ./PromptRig_*.AppImage
+```
+
+This applies regardless of install method (`.deb`/`.rpm`/`.AppImage`) — set the environment
+variable before launching the `promptrig` binary either way. The same underlying issue, in a
+milder form (a Wayland protocol error rather than a hard abort), is also why `docs/development.md`
+recommends the same variable for `npm run tauri dev` on this kind of setup.
+
 ## Not yet done (deliberately deferred)
 
 - **Code signing** (Apple Developer certificate, Windows code-signing certificate). Needed to

@@ -212,6 +212,17 @@ which were never actually set up despite being in the original architecture plan
   discarded the iOS/Android icon sets it also generates (out of scope — desktop-only app).
   Source `app-icon.png` kept at the repo root for future re-generation. User plans to touch up
   a few small corner artifacts by hand later (Photoshop) — not blocking.
+- [x] **First real release cut**: tagged and pushed `v0.1.0`. `release.yml` ran for the first
+  time ever — all 4 platform jobs (macOS arm64/x64, Linux, Windows) succeeded on the first
+  attempt, draft release created with all 9 expected installer assets. Still a draft, pending
+  the user's review/testing before publishing.
+  - **Real bug found from this first release**, via the user's own testing on this dev machine:
+    the `.AppImage` aborts on launch (`Could not create GBM EGL display: EGL_SUCCESS`) on
+    NVIDIA+Wayland — a harsher variant of the known `tauri dev` issue, this time a hard crash in
+    the packaged binary rather than a soft protocol error. Reproduced and fixed directly (same
+    machine): `WEBKIT_DISABLE_DMABUF_RENDERER=1` before the binary fixes it, same as the dev
+    workaround. Documented in `README.md`'s Linux install section and a new "Troubleshooting"
+    section in `docs/release.md` (applies to `.deb`/`.rpm` too, not just the AppImage).
 
 ## Step 11 — Documentation
 

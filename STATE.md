@@ -87,10 +87,32 @@ build` clean; verified live via a full `tauri dev` restart (capability changes n
 doesn't pick them up) — no permission errors, tooltip shows correctly. User confirmed working
 ("ça fonctionne, c'est bien") before requesting the commit.
 
-Remaining before a real tagged release: the user's icon touch-ups (their own Photoshop pass, not
-blocking) and whatever else surfaces from a final review — otherwise the natural next action is
-deciding whether to cut `v0.1.0` (or similar) and prove `release.yml` end to end, or keep
-polishing.
+**`v0.1.0` has been cut**, 2026-09-08. Pushed the 3 pending commits to `master`, let `ci.yml` go
+green on that commit, tagged `v0.1.0`, pushed the tag. `release.yml` ran for the very first
+time — **all 4 platform jobs succeeded on the first attempt** (macOS arm64, macOS x64,
+ubuntu-22.04, windows-latest, ~8-9 min each). Draft release `PromptRig v0.1.0` created with all
+9 expected assets (`.exe`, `.msi`, 2×`.dmg`, 2×`.app.tar.gz`, `.deb`, `.rpm`, `.AppImage`). Its
+URL temporarily shows `releases/tag/untagged-<hash>` instead of `v0.1.0` — a known GitHub quirk
+for draft releases, resolves once published. **Still a draft** — the user reviews/tests before
+publishing, nothing is public yet.
+
+**First real-world bug found via the user's own testing**: downloaded and ran the `.AppImage` on
+this same dev machine (NVIDIA + Hyprland/Wayland) — immediate crash: `Could not create GBM EGL
+display: EGL_SUCCESS. Aborting... Aborted (core dumped)`. A harsher variant of the already-known
+`tauri dev` NVIDIA/Wayland issue (that one is a non-fatal Wayland protocol error; this one is a
+hard abort in the packaged binary — same underlying WebKitGTK/NVIDIA-GBM incompatibility, worse
+here for reasons not fully understood, possibly related to how the AppImage's bundled runtime
+selects its rendering backend vs. the system webkit2gtk used in dev). Reproduced and fixed
+directly on this machine (the user asked me to test rather than walk them through it, since it's
+the same machine): `WEBKIT_DISABLE_DMABUF_RENDERER=1 ./PromptRig_0.1.0_amd64.AppImage` launches
+cleanly (backgrounded it, confirmed the process stays alive with no error output, unlike the
+instant abort without the variable). Documented in both `README.md`'s Linux install section and
+a new "Troubleshooting" section in `docs/release.md` — explicitly noting it applies to
+`.deb`/`.rpm` installs too (same binary, same rendering issue), not just the AppImage.
+**Not yet committed** — about to be.
+
+Remaining before the user publishes: whatever else surfaces from their own testing (this NVIDIA
+issue being the first real find), and their planned icon touch-ups (not blocking).
 
 ## Done so far
 

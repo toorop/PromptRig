@@ -49,6 +49,15 @@ Grab the installer for your OS from the
     ./PromptRig_*.AppImage
     ```
 
+  **Linux + NVIDIA + Wayland**: if the app aborts on launch with `Could not create GBM EGL
+  display: EGL_SUCCESS. Aborting...`, it's a known WebKitGTK/NVIDIA-proprietary-driver issue on
+  Wayland, not a PromptRig bug. Work around it by launching with:
+  ```bash
+  WEBKIT_DISABLE_DMABUF_RENDERER=1 ./PromptRig_*.AppImage
+  ```
+  (same fix applies to the `.deb`/`.rpm` install — set the variable before launching the
+  `promptrig` binary either way.)
+
 See [docs/release.md](./docs/release.md) for the full picture, including what's deliberately not
 done yet (code signing, a native Arch/AUR package, auto-update).
 
