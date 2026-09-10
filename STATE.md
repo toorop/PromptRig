@@ -185,6 +185,37 @@ special-cased removal-handling code needed. Asked the user whether this default 
 confirmation before deleting a pinned card) was fine or needed a safety prompt — they confirmed
 the current behavior (KISS) is what they want.
 
+**`v0.2.0` tagged and released, 2026-09-08** — version bumped in all three files (verified
+matching locally before pushing), `ci.yml` green on the bump commit, tag pushed, `release.yml`
+ran successfully a second time (all 4 platform jobs green again, same 9 installer assets as
+`v0.1.0`). Session ended there per the user's request ("on s'arrête là pour aujourd'hui").
+
+**Follow-up same day, outside the repo**: set up local desktop integration on the user's own
+Omarchy machine for launching the AppImage (a `promptrig` PATH command that always runs
+whichever `PromptRig_*.AppImage` in `~/Downloads` is newest by mtime, an icon installed into
+`~/.local/share/icons/hicolor/`, and a `.desktop` launcher entry) — tested working end to end,
+including that it correctly picked up `v0.2.0` right after it was downloaded. Generalized (no
+hardcoded username) and documented as an optional step in `docs/release.md`'s Linux section for
+other Arch/Omarchy users in the same situation, committed & pushed (`4b31cd8`).
+
+**2026-09-10 — short session, research note only, nothing implemented**: the user surfaced
+[models.dev](https://models.dev/) (MIT-licensed, community-maintained, powers OpenCode's model
+picker) as a possible better pricing/model-metadata source than the current OpenRouter-based
+approach. Confirmed its real shape via its GitHub repo before logging anything (plain JSON
+endpoints, no API key: `api.json`/`models.json`/`catalog.json`; per-model cost broken out by
+input/output/reasoning/cached/audio, context limits, capability flags) rather than trusting the
+landing page's marketing copy alone. Logged as a detailed deferred idea in TODO.md (see "Use
+models.dev as a pricing/model-metadata source instead of (or alongside) OpenRouter") with the
+concrete reason it could matter: it might resolve model ids directly per-provider instead of the
+fuzzy vendor/model-id matching `pricing::openrouter_fallback` needs against OpenRouter's own
+proxy-shaped catalog — but this hasn't been verified against a real payload yet, only against
+the repo's README description, so that's explicitly flagged as the first thing to check before
+building anything. The user was explicit they don't have time to implement this now — this is
+purely a "remember this for later" entry, not a decision to build it, so **do not start on it
+without the user explicitly asking**. Also fixed a small stale doc reference found in passing:
+`TODO.md`'s intro line still said `docs/architecture.md` was "(once written)", from before
+Step 11 wrote it.
+
 ## Done so far
 
 **Step 0 — Bootstrap** (committed & pushed):

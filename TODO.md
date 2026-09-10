@@ -2,7 +2,7 @@
 
 Detailed, checkable task list. Keep this in sync with reality: check items off as they land,
 and update [STATE.md](./STATE.md) in the same commit. Full architecture rationale lives in
-`docs/architecture.md` (once written) and in the original spec at `docs/start.md`.
+[docs/architecture.md](./docs/architecture.md) and in the original spec at `docs/start.md`.
 
 Explicitly **out of scope for now** (do not start early): automatic prompt optimizer, advanced
 Experiment UI (multiple prompt variants, parameter matrices), streaming UI.
@@ -501,3 +501,42 @@ given the pattern was already established elsewhere, so both landed together):
   user asked about this exact scenario and it was already handled by construction, confirmed by
   tracing the watcher rather than assumed.
 - User confirmed working live (pinned a column, restarted the app, it was still there).
+
+### Use models.dev as a pricing/model-metadata source instead of (or alongside) OpenRouter — user idea, 2026-09-10
+
+The user found [models.dev](https://models.dev/) — the open-source (MIT), community-maintained
+model/pricing database that powers OpenCode's own model picker — and flagged it as a possible
+better source than the current OpenRouter-based approach (`pricing::openrouter_fallback`,
+Step 8/MVP work). Confirmed via its GitHub repo (`github.com/sst/models.dev`) before logging
+this, rather than assuming: it publishes plain JSON endpoints with no API key needed —
+`https://models.dev/api.json` (provider-inclusive), `models.json` (model-only), and
+`catalog.json` (combined) — each entry carrying per-million-token cost (input/output/reasoning/
+cached/audio separately), context/output token limits, capability flags (`reasoning`,
+`tool_call`, `structured_output`, `temperature`, attachment/modality support), and release/
+knowledge-cutoff dates. Updated continuously via GitHub PRs with schema validation, not a fixed
+release cadence.
+
+Why this could be a real improvement over the current design, if picked up later: our OpenRouter
+fallback (see `pricing/openrouter_fallback.rs`'s module doc) has to *fuzzy-match* a native
+provider's model id against OpenRouter's own differently-shaped `vendor/model` ids (normalizing
+case/punctuation, stripping dates, resolving `-latest` aliases, etc.) precisely because
+OpenRouter's catalog exists to describe *OpenRouter's own* proxied models, not to be a neutral
+cross-provider registry — real misses are expected and accepted as a known limitation. models.dev
+is explicitly built as that neutral registry instead, so — depending on how it actually keys
+entries per provider (not yet checked in detail; the fields above come from the repo's README
+description, not a hands-on look at real payload data) — it might resolve directly by
+provider+model id with no fuzzy matching needed at all, and could yield *exact* rather than
+approximate cross-provider costs, retiring the `cost_is_estimate` ceiling caveat for whichever
+models it actually covers. Also separately relevant to the already-logged "update pricing.json
+from an external source" idea (see the OpenRouter/LiteLLM entries above) — models.dev's own MIT
+license and "this is the whole point of the project" positioning is a stronger fit than LiteLLM's
+previously-flagged "reference/cross-check only, no hard runtime dependency" caution, though that
+tradeoff (any external dependency risk) is worth revisiting on its own merits when this is
+actually picked up, not assumed away here.
+
+**Not started** — the user explicitly said they don't have time to implement this now; this is a
+research note for a future session, not a decision to build it. Before implementing: actually
+fetch and inspect a real `api.json` payload (its true key/id shape per provider, not just the
+README's field list) to confirm whether it really eliminates the fuzzy-matching problem or just
+relocates it, and decide whether it replaces `pricing::openrouter_fallback` outright or
+supplements it (e.g. try models.dev first, fall back to the OpenRouter approximation).
