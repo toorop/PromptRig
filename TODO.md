@@ -288,12 +288,17 @@ Discussed 2026-09-07, explicitly not to be implemented until the user asks:
   pages and opens a PR (or otherwise updates) that maintained `pricing.json` in the repo — a
   follow-up project of its own, not part of the app itself.
 - **Use OpenRouter's own pricing as an approximate stand-in for other providers — implemented
-  2026-09-08**, ahead of the Step 11 documentation pass, at the user's explicit request before
-  cutting any release ("c'est quelque chose d'important d'avoir le prix de la requête"). See
-  `src-tauri/src/pricing/openrouter_fallback.rs` and STATE.md for the full design (fetch
-  OpenRouter's public `/models` catalog once per session, fuzzy-match native model ids against
-  OpenRouter's `vendor/model` ids, disclose via a new `Run.cost_is_estimate` flag + a "≈" badge
-  and tooltip in the UI). User confirmed it works live ("Ça fonctionne, bravo!").
+  2026-09-08, later fully superseded by models.dev, 2026-09-11 (see below)**. Originally built
+  ahead of the Step 11 documentation pass, at the user's explicit request before cutting any
+  release ("c'est quelque chose d'important d'avoir le prix de la requête"): fetched OpenRouter's
+  public `/models` catalog once per session, fuzzy-matched native model ids against OpenRouter's
+  `vendor/model` ids, disclosed via a `Run.cost_is_estimate` flag + a "≈" badge and tooltip in
+  the UI. Once the user found models.dev (see "Use models.dev..." below) — which indexes by each
+  provider's own native model id directly, needing no fuzzy matching at all — this whole design
+  (the `pricing/openrouter_fallback.rs` module, and the now-redundant hand-curated
+  `pricing/pricing.json` it existed alongside) was deleted outright rather than kept as a
+  secondary fallback, per the user's own KISS call. `cost_is_estimate`/the "≈" UI stayed in
+  place (always `false` now) rather than being ripped out too.
   - **Follow-up fix, same day**: user reported Mistral's `ministral-3b-latest` showed no cost.
     Root cause: OpenRouter never lists a bare `-latest` entry, only dated snapshots
     (`ministral-3b-2512`, `ministral-3b-2407`, ...) — Mistral's whole model lineup uses this
@@ -502,7 +507,7 @@ given the pattern was already established elsewhere, so both landed together):
   tracing the watcher rather than assumed.
 - User confirmed working live (pinned a column, restarted the app, it was still there).
 
-### Use models.dev as a pricing/model-metadata source instead of (or alongside) OpenRouter — user idea, 2026-09-10
+### Use models.dev as a pricing/model-metadata source instead of (or alongside) OpenRouter — implemented 2026-09-11
 
 The user found [models.dev](https://models.dev/) — the open-source (MIT), community-maintained
 model/pricing database that powers OpenCode's own model picker — and flagged it as a possible
@@ -534,9 +539,126 @@ previously-flagged "reference/cross-check only, no hard runtime dependency" caut
 tradeoff (any external dependency risk) is worth revisiting on its own merits when this is
 actually picked up, not assumed away here.
 
-**Not started** — the user explicitly said they don't have time to implement this now; this is a
-research note for a future session, not a decision to build it. Before implementing: actually
-fetch and inspect a real `api.json` payload (its true key/id shape per provider, not just the
-README's field list) to confirm whether it really eliminates the fuzzy-matching problem or just
-relocates it, and decide whether it replaces `pricing::openrouter_fallback` outright or
-supplements it (e.g. try models.dev first, fall back to the OpenRouter approximation).
+**Implemented, 2026-09-11.** Before writing any code, fetched and inspected a real `api.json`
+payload (4.5 MB, 213 providers) rather than trusting the README's field list — confirmed it
+really does eliminate the fuzzy-matching problem rather than relocating it: models.dev keys
+directly by each provider's own native model id, and the exact real-world case that needed the
+old alias-resolution hack (Mistral's `ministral-3b-latest`) is present as its own real entry
+with real pricing ($0.04/$0.04). Coverage checked broad and reliable (44/48 OpenAI models priced,
+14/14 Anthropic, 34/39 Google, 32/34 Mistral, 357/361 OpenRouter); cross-checked `gpt-4o-mini`
+against the old hand-curated `pricing.json` and got an exact match before deleting that file.
+
+Decided with the user (two explicit calls, not assumed): **no further fallback** when a model is
+missing from models.dev (just "—", same as today — dropped the whole fuzzy-matching apparatus
+rather than keeping it as a secondary safety net) and **delete `pricing.json` outright** (one
+source instead of two, no more manual upkeep). See `src-tauri/src/pricing/models_dev.rs`'s
+module doc for the full design; `docs/architecture.md`'s "Cost estimation" section rewritten to
+match.
+
+Also implements the user's follow-up ask in the same conversation: `commands::providers::
+list_models` now hides any model models.dev marks `"deprecated"` (a `"beta"` model is still
+shown, per their explicit call) — one models.dev lookup per model covers both the price and this
+deprecation check.
+
+**Deliberately over-parses for planned future features** (the user's explicit ask, since they
+plan to eventually use these): `pricing::models_dev::ModelEntry` captures modalities
+(multimodal input/output types), `reasoning`/`reasoning_options` (effort levels like
+none/low/medium/high/xhigh/max), `tool_call`/`structured_output`/`temperature` support, and
+context/input/output token limits — none of it consumed yet beyond `cost`/`status`, but parsed
+now so a later multimodal-aware picker or reasoning-effort selector doesn't need to redo the
+fetch/parse layer. Marked `#[allow(dead_code)]` with a comment explaining why, rather than
+leaving it to accumulate silent warnings or getting deleted as apparently-unused.
+
+5 new unit tests (`pricing::models_dev`) replacing the 13 that covered the deleted
+`openrouter_fallback`/`PricingTable` modules — net simpler test surface, matching the net
+simpler implementation. `cargo check`/`clippy --all-targets -- -D warnings`/`fmt --check`/`test`
+(37 passing, 1 ignored) and `npm run build` all clean.
+
+**Regression found and fixed the same day**: the user reported prices had disappeared entirely
+from the model picker after this landed. Root cause, found by adding a temporary throwaway test
+that did a real fetch against the live `api.json` (the shipped unit tests only ever exercised a
+small hand-written sample, which never exposed this): `ModelEntry`'s `reasoning_options` field
+deserializes the *entire* `api.json` in one `serde_json::from_str` call across all 213 providers,
+not just the 5 PromptRig maps — so one malformed entry anywhere in that file fails the whole
+fetch, silently, for every provider. Two real-world shapes the strict struct didn't allow for:
+a `reasoning_options` entry can be `{"type": "toggle"}` or `{"type": "budget_tokens"}` with no
+`values` field at all (only `"effort"`-style options list concrete levels), and even where
+`values` is present, an individual entry inside it can itself be `null` (seen on one Sarvam
+model: `["values": [null, "low", "medium", "high"]]`, meaning "no explicit level" alongside named
+ones). Fixed by widening `ReasoningOption.values` from `Vec<String>` to
+`Option<Vec<Option<String>>>` — matches the real upstream shape rather than assuming a cleaner one
+from the README. Re-verified against a real fetch (`gpt-4o-mini` → $0.15/$0.60,
+`claude-opus-4-5` → $5/$25, all 213 providers parse) before removing the throwaway debug tests.
+`cargo check`/`clippy -D warnings`/`fmt --check`/`test` all clean again after the fix.
+
+**Follow-up, same day: `ETag`-based conditional fetch + disk cache.** The user noticed
+models.dev's response carries an `ETag` and asked to use it to avoid re-downloading the whole
+~4.5 MB payload on every launch when nothing changed — also correcting a wrong assumption of
+theirs along the way (there is no database step at all today; `ModelsDevCache` only ever kept the
+parsed result in memory for the session). Confirmed the real response does carry a Cloudflare
+`ETag` before building anything. Got two explicit decisions from the user via `AskUserQuestion`:
+persist a small disk cache (not SQLite — it's not relational data) next to the SQLite file in the
+app data dir, and fall back to that disk cache (rather than showing no price) whenever the
+request can't complete at all (offline, DNS failure, non-2xx status), not just on `304`.
+
+Implemented in `pricing/models_dev.rs`: two flat files (`models_dev_cache.json` for the raw body,
+`models_dev_cache.etag` for the `ETag` value — kept separate so the body never needs
+JSON-escaping). `fetch()` now sends `If-None-Match` when a disk cache exists; on `304 Not
+Modified` it reparses the disk-cached body instead of downloading again; on any request failure
+or non-2xx status, it falls back to the disk cache if one exists (erroring only when there's
+truly nothing cached yet); on a fresh `200`, it parses the new body and only *then* overwrites the
+disk cache (so a malformed response never clobbers a known-good cache). `ModelsDevCache::new` now
+takes the cache directory (`lib.rs` passes the same `app_data_dir` the SQLite file already lives
+in) instead of being parameterless.
+
+Verified against the real endpoint with a temporary throwaway test (removed after): first fetch
+into an empty directory wrote both cache files and returned a price; a second `ModelsDevCache`
+pointed at the same directory got a `304` and returned the identical price from disk, with no
+`GET` for the full body. 2 new unit tests cover the disk-cache read/write round trip in isolation
+(a temp directory per test, no real network call). `cargo check`/`clippy -D warnings`/
+`fmt --check`/`test` (39 passing, 1 ignored) all clean.
+
+### Slow/no connection could stall the UI on the models.dev fetch — user idea, 2026-09-11 (not started)
+
+Raised right after the `ETag`/disk-cache work above, but deliberately **not implemented yet** —
+the user is out of session time and asked to just note it down for a later session, not act on
+it now.
+
+The concern: on a fast connection the ~4.5 MB `api.json` download is invisible, but on a very
+slow or flaky connection (or a fresh install with genuinely no network yet), the first command
+that needs pricing — opening a provider's model list, or running a prompt — awaits
+`ModelsDevCache::price`/`is_deprecated`, which awaits the fetch. Two real gaps worth checking
+against the current code before doing anything:
+- `reqwest::Client::new()` (see `ModelsDevCache::new`) sets **no request/connect timeout at
+  all** — a stalled-but-not-dropped connection could hang the awaiting command indefinitely
+  rather than failing fast into the disk-cache fallback that was just built. This looks like a
+  real, separate bug worth fixing regardless of the rest of this idea (a small `.timeout(...)` on
+  the `Client` builder).
+- Even with a timeout, `commands::providers::list_models` and the Run-cost path both `.await` the
+  models.dev lookup inline before returning anything to the frontend — so a slow-but-eventually-
+  successful fetch still delays the whole model list / Run result by however long the download
+  takes, not just a hard freeze on a dead connection.
+
+The user's specific ask: a **Settings toggle to disable the models.dev download entirely** —
+for someone who'd rather never wait on it (and never see prices) than risk a stall. Options to
+weigh next session, not decided yet:
+1. Just the timeout fix (fast, uncontroversial, fixes the worst case — an indefinite hang —
+   regardless of what else is decided).
+2. The user's requested opt-out toggle in Settings, persisted like other settings, checked before
+   `ModelsDevCache` ever calls `fetch()` (skips pricing/deprecation-filtering entirely when off).
+3. A non-blocking fetch instead of (or alongside) a toggle: return models/Run results immediately
+   without price, then fill pricing in asynchronously once the fetch resolves — fixes the freeze
+   for everyone by default, no setting required, but is a bigger change (the frontend would need
+   to handle a model list / Run whose price arrives later).
+
+No decision needed right now — just verify the timeout gap against the real `reqwest` behavior,
+and ask the user which combination of (1)/(2)/(3) they want before writing any code.
+
+### `CHANGELOG.md` + `v0.3.0` release — done 2026-09-11
+
+Added `CHANGELOG.md` at the repo root (Keep a Changelog format), backfilling `0.1.0` and `0.2.0`
+from git history/STATE.md and adding a `0.3.0` entry for the models.dev pricing work above.
+`docs/release.md` now says to add the CHANGELOG entry as part of the version-bump commit for
+every future release. Also fixed two stale README lines noticed in passing ("Status:
+pre-release" / "No release has been tagged yet" — both predate `v0.1.0`). Version bumped to
+`0.3.0` and tagged.

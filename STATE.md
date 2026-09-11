@@ -216,6 +216,96 @@ without the user explicitly asking**. Also fixed a small stale doc reference fou
 `TODO.md`'s intro line still said `docs/architecture.md` was "(once written)", from before
 Step 11 wrote it.
 
+**2026-09-11 — models.dev pricing replacement, implemented, not yet committed**: the user asked
+to actually build the models.dev idea logged above. Before writing any code, re-verified the real
+payload directly (`curl`+Python on the live 4.5MB `api.json`, not just the README): confirmed
+each provider's models are keyed by their own **native** model id (no fuzzy matching needed at
+all — even Mistral's `-latest` aliases like `ministral-3b-latest` are present as real entries,
+which the old `pricing::openrouter_fallback` design could never resolve directly), confirmed
+>90% coverage across OpenAI/Anthropic/Gemini/Mistral/OpenRouter, and cross-checked one known price
+(`gpt-4o-mini` = $0.15 / $0.60 per million) against the old hand-curated `pricing.json` before
+deleting it. Got two explicit decisions from the user via `AskUserQuestion`: no approximate
+fallback when a model is missing from models.dev ("pas de filet"), and delete `pricing.json`
+outright rather than keep it as a user override.
+
+The user then asked what other per-model fields models.dev exposes (multimodal support,
+reasoning-effort levels, etc.), and after hearing the list, gave an explicit architectural
+instruction that shaped the implementation: don't build UI features for that data now, but *do*
+make sure the parsing layer captures it now, since multimodal-aware UI and a reasoning-effort
+selector are planned follow-ups and shouldn't require redoing the fetch/parse layer later; and
+separately, do implement deprecated-model filtering now (hide `"deprecated"` models from the
+picker, keep `"beta"` ones) since that's simple and immediately useful.
+
+Implemented: deleted `pricing/openrouter_fallback.rs` and `pricing/pricing.json` outright; wrote
+`pricing/models_dev.rs` (`ModelsDevCache`, fetched once per session and memoized — same
+fetch-once-remember-failure `LoadState` pattern the old cache used) with a deliberately
+over-parsed `ModelEntry` (name, status, attachment, reasoning, reasoning_options, tool_call,
+structured_output, modalities, limits, cost, ...) marked `#[allow(dead_code)]` with a doc comment
+explaining only price + status are consumed today; `pricing/mod.rs` collapsed down to just
+`ModelPrice` + a re-export. Updated every call site (`commands/mod.rs`, `commands/runs.rs`,
+`commands/experiments.rs`, `commands/providers.rs`, `lib.rs`) to use the single `ModelsDevCache`
+instead of the old `PricingTable` + `OpenRouterPricingCache` pair; `commands::providers::
+list_models` now does deprecated-filtering and price-enrichment in the same loop, one lookup per
+model. `Run.cost_is_estimate` / `ModelPricing.is_estimate` fields were kept (not removed) but are
+always `false` now — avoids a SQLite migration and a multi-file frontend UI rewrite ("≈" badge/
+tooltip) that wasn't requested; doc comments explain why they're dormant rather than deleted.
+Updated stale doc comments in `domain/model.rs` and `domain/run.rs`, rewrote `docs/
+architecture.md`'s "Cost estimation" section and `docs/adding-a-provider.md`'s pricing section
+to match. Verified clean: `cargo check`, `cargo clippy --all-targets -- -D warnings`, `cargo fmt
+--check`, `cargo test` (37 passed, 1 ignored — down from 44, net simpler), `npm run build`; a live
+`tauri dev` restart confirmed `bindings.ts` is unchanged in shape (frontend needed zero changes).
+**Not yet committed** — waiting on the user's review before commit/push, per the project's usual
+one-step-at-a-time workflow.
+
+**Regression found and fixed same day**: the user reported prices had vanished entirely from the
+model picker. Root cause: `ModelEntry.reasoning_options`' `values` field was typed as a required
+`Vec<String>`, but the real `api.json` has `reasoning_options` entries with no `values` at all
+(`"toggle"`/`"budget_tokens"` types) and, in at least one case, a `null` inside the `values`
+array itself. Since the fetch deserializes the *whole* payload (all 213 providers) in one shot,
+one bad entry anywhere failed the entire fetch silently — zero prices for every provider, not
+just the affected model. Found by writing a temporary test against the real live endpoint (the
+committed unit tests only used a small hand-written sample, which couldn't have caught this).
+Fixed by widening the field to `Option<Vec<Option<String>>>`. Re-verified against the real
+endpoint (`gpt-4o-mini`, `claude-opus-4-5` both price correctly, all 213 providers parse) and
+re-ran the full check suite clean before removing the debug tests.
+
+**Follow-up same day: `ETag`-conditional fetch + on-disk cache.** The user spotted that
+models.dev's response carries an `ETag` and asked to use it to skip re-downloading the ~4.5 MB
+payload every launch when unchanged — this also surfaced that they'd assumed (incorrectly) that
+the data already went through a database step; corrected that first (it was, and still is,
+in-memory-only per session). Two explicit decisions via `AskUserQuestion`: persist a small disk
+cache (plain files next to the SQLite database, not inside it — not relational data) and fall
+back to that disk cache, rather than showing no price, whenever the request fails outright
+(offline, non-2xx) and not just on a `304`. Implemented: `models_dev_cache.json` (raw body) +
+`models_dev_cache.etag` (the `ETag` value) in the app data dir; `fetch()` sends `If-None-Match`,
+reuses the disk body on `304`, falls back to it on any failure, and only overwrites it after a
+successful parse of a fresh `200`. `ModelsDevCache::new` now takes the cache directory
+(`lib.rs` passes the same `app_data_dir` used for the SQLite file). Verified end-to-end with a
+temporary test against the real endpoint (first fetch wrote both files and returned a price; a
+second cache instance pointed at the same directory got a real `304` and reused the disk copy)
+before removing it; 2 new unit tests cover the disk read/write round trip in isolation. 39 tests
+passing (up from 37), `cargo check`/`clippy -D warnings`/`fmt --check` clean.
+
+**Noted, not started: possible UI stall on a slow/no connection.** The user ran out of session
+time right after the ETag work and asked to just log this for next time rather than implement it.
+Their ask: a Settings toggle to disable the models.dev download outright, for someone on a very
+slow connection (the ~4.5 MB first-fetch could otherwise stall the model list/Run path). Worth
+checking first: `reqwest::Client::new()` in `ModelsDevCache::new` sets no timeout at all today,
+so a stalled connection could hang indefinitely rather than failing into the disk-cache fallback
+— a real bug on its own, independent of whatever else gets decided. See TODO.md's "Slow/no
+connection could stall the UI on the models.dev fetch" entry for the three options sketched out
+(timeout fix / opt-out toggle / non-blocking fetch) — nothing decided yet, pick this up by asking
+the user which they want before writing code.
+
+**`CHANGELOG.md` added and `v0.3.0` cut, 2026-09-11.** Created `CHANGELOG.md` (Keep a Changelog
+format), backfilling `0.1.0`/`0.2.0` from git history and this file, plus a `0.3.0` entry for the
+models.dev pricing replacement + disk cache above. `docs/release.md`'s "Cutting a release" step 1
+now also says to add the CHANGELOG entry in the same commit as the version bump, so this becomes
+a standing habit rather than a one-off. Also fixed two now-false lines in `README.md` found in
+passing: the "Status: pre-release" callout and "No release has been tagged yet" under
+Installation — both dated back to before `v0.1.0` ever shipped. Version bumped to `0.3.0` in
+`package.json`/`src-tauri/Cargo.toml`/`src-tauri/tauri.conf.json` (+ `Cargo.lock`).
+
 ## Done so far
 
 **Step 0 — Bootstrap** (committed & pushed):

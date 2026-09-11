@@ -8,10 +8,10 @@ system prompt and a user prompt, run it, and see the result along with latency, 
 and estimated cost. It is deliberately **not** an agent builder, an observability platform, or
 a workflow engine — just a focused tool for testing and comparing prompts across models.
 
-> **Status: pre-release.** Core functionality (Playground, side-by-side Compare, five
-> providers, cost estimation, secrets/storage) is implemented and working end to end. See
-> [TODO.md](./TODO.md) for what's left before a first tagged release and
-> [STATE.md](./STATE.md) for a detailed, chronological build log.
+> Core functionality (Playground, side-by-side Compare, five providers, cost estimation,
+> secrets/storage) is implemented and working end to end. See
+> [CHANGELOG.md](./CHANGELOG.md) for release notes, [TODO.md](./TODO.md) for what's planned
+> next, and [STATE.md](./STATE.md) for a detailed, chronological build log.
 
 ## Screenshots
 
@@ -25,9 +25,6 @@ a workflow engine — just a focused tool for testing and comparing prompts acro
 <img width="1422" height="898" alt="screenshot-2026-09-08_13-34-53" src="https://github.com/user-attachments/assets/c3db5cef-c94e-4170-a968-3e89ef37b4bd" />
 
 ## Installation
-
-> No release has been tagged yet — the links below will 404 until then (see
-> [STATE.md](./STATE.md) for where things stand). Once one exists, this is how to get it.
 
 Grab the installer for your OS from the
 **[latest release](https://github.com/toorop/PromptRig/releases/latest)**.

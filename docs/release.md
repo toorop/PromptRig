@@ -18,8 +18,12 @@ this if it becomes error-prone in practice.
 
 ## Cutting a release
 
-1. Bump the version in the three files above, in one commit (e.g. `chore: bump version to
-   0.2.0`), and push it to `master` like any other change — let CI pass on it first.
+1. Add a new section to the top of [`CHANGELOG.md`](../CHANGELOG.md) (`## [x.y.z] - YYYY-MM-DD`,
+   following [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)'s Added/Changed/Fixed/
+   Removed grouping) summarizing what changed since the last tag — user-visible changes only,
+   not internal refactors. Bump the version in the three files above to match, in the same
+   commit (e.g. `chore: bump version to 0.2.0`), and push it to `master` like any other change —
+   let CI pass on it first.
 2. Tag that commit and push the tag:
    ```
    git tag v0.2.0
