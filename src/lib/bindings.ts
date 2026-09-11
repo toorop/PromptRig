@@ -12,11 +12,15 @@ export const commands = {
 	/**
 	 *  Beyond just listing what a provider offers, this also drops any model models.dev marks
 	 *  `"deprecated"` (no point offering a dead end in the picker — a `"beta"` model is still shown,
-	 *  per the user's explicit call) and fills in each model's `pricing` field (a rate to show in
-	 *  the picker, not a computed cost — see `ModelInfo::pricing`) so the frontend never needs its
-	 *  own copy of the pricing-lookup logic. Providers themselves stay unaware models.dev exists at
-	 *  all — this enrichment happens here, at the command boundary, same separation as `Run`'s cost
-	 *  estimation in `build_new_run`.
+	 *  per the user's explicit call), drops any model models.dev's modality data says isn't a plain
+	 *  text-in/text-out chat model (image/audio/video generation, speech transcription, realtime
+	 *  voice — this app only ever sends/receives plain text), fills in each model's `pricing` field
+	 *  (a rate to show in the picker, not a computed cost — see `ModelInfo::pricing`), and fills in
+	 *  `reasoning_effort_levels` for providers we can actually send a resolved value to (see
+	 *  `supports_reasoning_effort_wiring`) so the frontend never needs its own copy of any of this
+	 *  lookup logic. Providers themselves stay unaware models.dev exists at all — this enrichment
+	 *  happens here, at the command boundary, same separation as `Run`'s cost estimation in
+	 *  `build_new_run`.
 	 */
 	listModels: (provider: ProviderId) => typedError<ModelInfo[], AppError>(__TAURI_INVOKE("list_models", { provider })),
 	runGeneration: (input: RunGenerationInput) => typedError<Run_Serialize, AppError>(__TAURI_INVOKE("run_generation", { input })),
@@ -41,6 +45,16 @@ export type AppError = { kind: "Provider"; message: string } | { kind: "Storage"
 export type ComparisonColumn = {
 	provider: ProviderId,
 	model_id: string,
+	/**
+	 *  Unlike every other generation param (shared across all columns via
+	 *  `RunExperimentInput::params`), reasoning effort is column-specific: each column can have a
+	 *  different model with a different, non-overlapping set of valid values (see
+	 *  `ModelInfo::reasoning_effort_levels`), so one global value could be flatly invalid for
+	 *  another column's model. Overrides `params.reasoning_effort` for this column in
+	 *  `run_column` — the frontend always leaves the shared `params.reasoning_effort` unset for
+	 *  Compare and sets it here instead, per column.
+	 */
+	reasoning_effort: string | null,
 };
 
 /**
@@ -107,6 +121,14 @@ export type GenerationParams = {
 	temperature: number | null,
 	top_p: number | null,
 	max_tokens: number | null,
+	/**
+	 *  One of the model's own `ModelInfo::reasoning_effort_levels` (e.g. `"low"`/`"high"`), or
+	 *  `None` to let the model reason with its own default behavior. The frontend only lets the
+	 *  user pick a value the *currently selected* model actually reports supporting — see
+	 *  `ReasoningEffortSelect.vue` — so a provider module can forward this as-is without
+	 *  re-validating it against a fixed enum here.
+	 */
+	reasoning_effort: string | null,
 };
 
 /**
@@ -154,6 +176,17 @@ export type ModelInfo = {
 	 *  same separation as `Run`'s own cost estimation.
 	 */
 	pricing: ModelPricing | null,
+	/**
+	 *  The reasoning-effort levels this model accepts (e.g. `["low", "medium", "high"]`), in
+	 *  whatever order models.dev lists them — `None` when the model has no such control (either
+	 *  it's not a reasoning model, or it reasons unconditionally with nothing to tune, like most
+	 *  Gemini models, or — for Anthropic — its older extended-thinking-only generation, which has
+	 *  no `effort` concept at all). Filled in by `commands::providers::list_models` (see
+	 *  `pricing::models_dev::ModelsDevCache::reasoning_effort_levels` and
+	 *  `commands::providers::supports_reasoning_effort_wiring`) for every implemented provider —
+	 *  each has a real API field this app can send a resolved value to.
+	 */
+	reasoning_effort_levels: string[] | null,
 };
 
 /**

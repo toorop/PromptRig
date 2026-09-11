@@ -21,6 +21,14 @@ use crate::storage::{experiments_repo, runs_repo, Database};
 pub struct ComparisonColumn {
     pub provider: ProviderId,
     pub model_id: String,
+    /// Unlike every other generation param (shared across all columns via
+    /// `RunExperimentInput::params`), reasoning effort is column-specific: each column can have a
+    /// different model with a different, non-overlapping set of valid values (see
+    /// `ModelInfo::reasoning_effort_levels`), so one global value could be flatly invalid for
+    /// another column's model. Overrides `params.reasoning_effort` for this column in
+    /// `run_column` — the frontend always leaves the shared `params.reasoning_effort` unset for
+    /// Compare and sets it here instead, per column.
+    pub reasoning_effort: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, specta::Type)]
@@ -52,11 +60,12 @@ async fn run_column(
     column: ComparisonColumn,
     system_prompt: String,
     user_prompt: String,
-    params: GenerationParams,
+    mut params: GenerationParams,
     providers: &ProviderRegistry,
     models_dev: &ModelsDevCache,
     db: &Database,
 ) -> AppResult<RunId> {
+    params.reasoning_effort = column.reasoning_effort;
     let started_at = Utc::now();
 
     let outcome: AppResult<RunResult> = async {

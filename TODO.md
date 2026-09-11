@@ -668,3 +668,84 @@ from git history/STATE.md and adding a `0.3.0` entry for the models.dev pricing 
 every future release. Also fixed two stale README lines noticed in passing ("Status:
 pre-release" / "No release has been tagged yet" — both predate `v0.1.0`). Version bumped to
 `0.3.0` and tagged.
+
+### Filter the model picker to deprecated + text-only models — implemented 2026-09-11
+
+The user noticed many inactive/wrong-modality models still showing in the picker and asked to
+filter them out, using models.dev's own data rather than guessing. Investigated the real
+`api.json` before writing anything: confirmed `status: "deprecated"` (already filtered, done in
+the earlier models.dev work) correctly flags old models (`gpt-4`, `gpt-3.5-turbo`, `o1`, ...), but
+disproved the user's second hypothesis ("no price = inactive") with real counter-examples — Google's
+free/open-weights Gemma models and OpenRouter's router pseudo-models (`openrouter/auto`, etc.) have
+no fixed price but are very much active — so that idea was dropped rather than implemented (would
+have hidden legitimate models). Confirmed via `AskUserQuestion`.
+
+Implemented instead: `ModelsDevCache::is_text_only(provider, model_id)` — keeps a model only if its
+models.dev `modalities` data shows it accepts `"text"` input and produces *only* `"text"` output
+(excludes image/video/audio-generation and realtime-voice models even when they also happen to
+emit text, since this app only ever sends/renders plain text; models with no modality data at all
+are kept, same "missing data never hides a model" policy as `is_deprecated`). Wired into
+`commands::providers::list_models` right after the existing deprecated-filter. 5 new unit tests.
+`cargo check`/`clippy -D warnings`/`fmt --check`/`test` (40 passing) and `npm run build` clean.
+
+### Fix: reasoning ("thinking") models could crash a Run instead of erroring cleanly — implemented 2026-09-11
+
+The user hit `unexpected OpenRouter response: error decoding response body` running a Gemini
+"thinking" model through OpenRouter, and correctly guessed it was related to `max_tokens` and
+reasoning models. Root cause confirmed: `providers/openai.rs`, `mistral.rs`, and `openrouter.rs`
+all typed the response's `message.content` as a required `String`, but the real Chat Completions
+API returns `content: null` (with `finish_reason: "length"`) when a reasoning model spends its
+entire token budget on internal reasoning before emitting any visible text — `serde` then fails to
+deserialize the *whole* response, surfacing as a raw, unhelpful reqwest error instead of a normal
+failed Run. (Anthropic and Gemini's native providers already had this field as `Option<String>` —
+not affected.)
+
+Fixed all three: `content` is now `Option<String>`, `Choice` also carries `finish_reason`, and a
+new pure `extract_text(choices)` function (mirrors `build_request`'s "kept separate so it's
+testable without a network call" pattern) turns a null/empty content into a specific, actionable
+error — "the model likely spent its entire max_tokens budget on internal reasoning before
+answering. Try raising max_tokens." — when `finish_reason == "length"`, or a generic empty-content
+error otherwise. The failed Run is still persisted with this message, same as any other provider
+error. 10 new unit tests (ordinary content, reasoning-budget case, generic empty-content case, no
+choices) across the three files. `cargo check`/`clippy -D warnings`/`fmt --check`/`test`
+(50 passing) and `npm run build` clean.
+
+**Follow-up implemented same day, 2026-09-11**: higher default `max_tokens` (1024→4096) and lower
+default temperature (0.7→0, better suited to reproducible prompt-testing runs than the old
+general-purpose default), plus a reasoning-effort control — see the next entry for the full design.
+Still not done: surfacing how much of the token budget went to reasoning vs. the answer (models.dev
+doesn't expose this as a static field; would need reading it back from the provider's own usage
+response, e.g. OpenAI's `completion_tokens_details.reasoning_tokens`) — not started, no decision
+made on whether it's worth it yet.
+
+### Reasoning-effort control (UI + backend), implemented 2026-09-11
+
+Scoped via `AskUserQuestion` to the `"effort"`-style control only (not Anthropic's
+`budget_tokens`/`toggle`) — see STATE.md for the full design and the per-provider wire-format
+verification (OpenAI/Mistral: top-level `reasoning_effort`; Gemini: nested
+`generationConfig.thinkingConfig.thinkingLevel`; OpenRouter: nested `reasoning: {effort}`;
+Anthropic explicitly excluded — no real API field to send an effort string to).
+
+New `ReasoningEffortSelect.vue` component, hidden entirely when the selected model reports no
+levels (models.dev's `ModelEntry.reasoning_options`, surfaced via the new
+`ModelInfo.reasoning_effort_levels`) — most Gemini reasoning models fall in this "no control at
+all" bucket, so this is the common case, not a corner case. Playground gets one shared instance;
+Compare gets one *per column* (a real `AskUserQuestion` decision — each column can have a different
+model with non-overlapping valid values, e.g. OpenAI's minimal/low/medium/high vs. Mistral's
+none/high, so a single global control could send an invalid value to some column's model). This
+needed a small backend change too: `commands::experiments::ComparisonColumn` gained its own
+`reasoning_effort` field, separate from the shared `RunExperimentInput::params`, since
+`run_experiment` previously had no way to vary a param per column.
+
+**Correction, same day**: initially assumed Anthropic had no real "effort" field (only the older
+`thinking: {budget_tokens}`) and left it out. The user asked about it directly; re-checking
+Anthropic's current docs (rather than trusting that stale assumption) found a real top-level
+`output_config.effort` field, independent of `thinking` mode, matching models.dev's per-model
+`"effort"` list exactly (including correctly excluding Sonnet 4.5/Haiku 4.5, which don't support
+it). Wired it in the same simple way as every other provider — see STATE.md for the model list and
+implementation detail. All five implemented providers now support reasoning effort; nothing
+provider-specific left unimplemented in this feature.
+
+**Deliberately not done, follow-ups if ever needed**: surfacing actual reasoning-token usage after
+a Run (e.g. OpenAI's `completion_tokens_details.reasoning_tokens`) — not started, no decision made
+on whether it's worth it yet.

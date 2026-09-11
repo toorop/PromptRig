@@ -90,6 +90,16 @@ struct GenerationConfig {
     top_p: Option<f64>,
     #[serde(rename = "maxOutputTokens", skip_serializing_if = "Option::is_none")]
     max_output_tokens: Option<u32>,
+    #[serde(rename = "thinkingConfig", skip_serializing_if = "Option::is_none")]
+    thinking_config: Option<ThinkingConfig>,
+}
+
+/// `thinkingLevel` (verified against Gemini's own docs) — nests under `generationConfig`, unlike
+/// every other provider's reasoning-effort field, which sits at the request's top level.
+#[derive(Serialize)]
+struct ThinkingConfig {
+    #[serde(rename = "thinkingLevel")]
+    thinking_level: String,
 }
 
 #[derive(Serialize)]
@@ -120,6 +130,10 @@ fn build_request<'a>(
             temperature: params.temperature,
             top_p: params.top_p,
             max_output_tokens: params.max_tokens,
+            thinking_config: params
+                .reasoning_effort
+                .clone()
+                .map(|thinking_level| ThinkingConfig { thinking_level }),
         },
     }
 }
@@ -220,6 +234,7 @@ impl LlmProvider for GeminiProvider {
                 },
                 context_window: listing.input_token_limit,
                 pricing: None,
+                reasoning_effort_levels: None,
             })
             .collect();
 
@@ -302,6 +317,7 @@ mod tests {
             temperature: Some(0.5),
             top_p: Some(0.9),
             max_tokens: Some(200),
+            reasoning_effort: None,
         };
 
         let request = build_request("You are terse.", "Hi", &params);
@@ -316,5 +332,23 @@ mod tests {
         );
         assert_eq!(json["contents"][0]["role"], "user");
         assert_eq!(json["contents"][0]["parts"][0]["text"], "Hi");
+    }
+
+    #[test]
+    fn reasoning_effort_becomes_a_nested_thinking_level() {
+        let params = GenerationParams {
+            temperature: None,
+            top_p: None,
+            max_tokens: None,
+            reasoning_effort: Some("high".into()),
+        };
+
+        let request = build_request("You are terse.", "Hi", &params);
+        let json = serde_json::to_value(&request).unwrap();
+
+        assert_eq!(
+            json["generationConfig"]["thinkingConfig"]["thinkingLevel"],
+            "high"
+        );
     }
 }

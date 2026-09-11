@@ -19,6 +19,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import GenerationParamsFields from "@/components/playground/GenerationParamsFields.vue";
 import ModelCombobox from "@/components/playground/ModelCombobox.vue";
+import ReasoningEffortSelect from "@/components/playground/ReasoningEffortSelect.vue";
 import ResultPanel from "@/components/playground/ResultPanel.vue";
 import CopyButton from "@/components/CopyButton.vue";
 import ResetButton from "@/components/ResetButton.vue";
@@ -51,6 +52,7 @@ const configuredProviders = computed(() =>
 async function onProviderChange(column: CompareColumn, provider: ProviderId | undefined) {
   column.provider = provider;
   column.modelId = undefined;
+  column.reasoningEffort = undefined;
   if (!provider) return;
 
   // Cached in the providers store — picking the same provider on another column reuses this
@@ -58,8 +60,19 @@ async function onProviderChange(column: CompareColumn, provider: ProviderId | un
   await providersStore.loadModels(provider);
 }
 
+function onModelChange(column: CompareColumn, modelId: string | undefined) {
+  column.modelId = modelId;
+  // A reasoning-effort value valid for the old model may not exist at all for the new one (see
+  // stores/compare.ts's CompareColumn.reasoningEffort doc comment).
+  column.reasoningEffort = undefined;
+}
+
 function modelsForColumn(column: CompareColumn) {
   return column.provider ? (providersStore.modelsByProvider[column.provider] ?? []) : [];
+}
+
+function selectedModelForColumn(column: CompareColumn) {
+  return modelsForColumn(column).find((m) => m.model_id === column.modelId) ?? null;
 }
 
 function modelsLoadingForColumn(column: CompareColumn) {
@@ -75,6 +88,7 @@ async function refreshModelsForColumn(column: CompareColumn) {
     // Clear the current selection first so the Select shows the "Loading models…" placeholder
     // instead of just greying out over whatever was already selected.
     column.modelId = undefined;
+    column.reasoningEffort = undefined;
     await providersStore.loadModels(column.provider, { force: true });
   }
 }
@@ -112,11 +126,18 @@ async function runAll() {
       temperature: temperature.value ?? null,
       top_p: topP.value ?? null,
       max_tokens: maxTokens.value ?? null,
+      // Left unset here — reasoning effort is column-specific (see stores/compare.ts), set per
+      // column below instead of shared like the other params.
+      reasoning_effort: null,
     },
     // The backend runs these concurrently but returns results in this same order, so they can
     // be zipped back to columns by index — against `columnsToRun`, not the full `columns.value`,
     // since pinned columns were never included in the request.
-    columns: columnsToRun.map((c) => ({ provider: c.provider as ProviderId, model_id: c.modelId as string })),
+    columns: columnsToRun.map((c) => ({
+      provider: c.provider as ProviderId,
+      model_id: c.modelId as string,
+      reasoning_effort: c.reasoningEffort ?? null,
+    })),
   });
 
   if (result.status === "ok") {
@@ -156,6 +177,7 @@ async function rerunColumn(column: CompareColumn) {
       temperature: temperature.value ?? null,
       top_p: topP.value ?? null,
       max_tokens: maxTokens.value ?? null,
+      reasoning_effort: column.reasoningEffort ?? null,
     },
   });
 
@@ -276,7 +298,7 @@ async function rerunColumn(column: CompareColumn) {
                 :loading="modelsLoadingForColumn(column)"
                 placeholder="Model"
                 class="flex-1 text-[15px]"
-                @update:model-id="(value) => (column.modelId = value)"
+                @update:model-id="(value) => onModelChange(column, value)"
               />
               <Tooltip>
                 <TooltipTrigger as-child>
@@ -306,6 +328,12 @@ async function rerunColumn(column: CompareColumn) {
             <p v-if="modelsErrorForColumn(column)" class="text-xs text-destructive">
               {{ modelsErrorForColumn(column) }}
             </p>
+
+            <ReasoningEffortSelect
+              v-model="column.reasoningEffort"
+              :field-id="`reasoning-effort-${column.key}`"
+              :levels="selectedModelForColumn(column)?.reasoning_effort_levels"
+            />
           </div>
 
           <div class="flex shrink-0 gap-1">

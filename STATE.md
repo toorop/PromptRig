@@ -314,6 +314,131 @@ awaiting command indefinitely. `cargo check`/`clippy -D warnings`/`fmt --check`/
 1 ignored) all clean. The Settings opt-out toggle and non-blocking-fetch options from that same
 TODO entry are still unstarted and undecided — not needed to close out the worst-case hang.
 
+**Model picker filtered to deprecated + text-only models, 2026-09-11.** User asked to filter out
+inactive models, suspecting both `status` and "no price" as signals. Verified the real `api.json`
+before coding: `status: "deprecated"` filtering was already in place and works correctly; "no
+price = inactive" was disproved with real counter-examples (Google's free Gemma models, OpenRouter
+router pseudo-models like `openrouter/auto` — both active, neither priced) and dropped rather than
+implemented, confirmed via `AskUserQuestion`. Implemented instead: `ModelsDevCache::is_text_only`,
+using models.dev's `modalities` field — keeps a model only if it accepts `"text"` input and
+produces *only* `"text"` output, so image/video/audio-generation and realtime-voice models are
+excluded even when they also emit some text, while ordinary multimodal-*input* chat models
+(GPT-4o, Claude, Gemini) still pass since their input side accepting images is irrelevant when we
+never send any. Models with no modality data at all are kept (same "missing data never hides a
+model" policy as `is_deprecated`). Wired into `commands::providers::list_models`. 5 new unit
+tests; `cargo check`/`clippy -D warnings`/`fmt --check`/`test` (40 passing) and `npm run build`
+clean.
+
+**Bug fixed: reasoning ("thinking") models could crash a Run, 2026-09-11.** User hit `unexpected
+OpenRouter response: error decoding response body` on a Gemini "thinking" model via OpenRouter and
+correctly guessed it was `max_tokens`-related. Root cause: `providers/openai.rs`, `mistral.rs`, and
+`openrouter.rs` all typed `message.content` as a required `String`, but the real API returns
+`content: null` (`finish_reason: "length"`) when a reasoning model spends its whole token budget on
+internal reasoning before emitting visible text — `serde` failed to deserialize the whole response,
+surfacing as a raw reqwest error instead of a normal failed Run. (Anthropic and native Gemini
+already had this field as `Option<String>` — not affected.) Fixed all three: `content` is now
+`Option<String>`, `Choice` carries `finish_reason`, and a new pure `extract_text(choices)` function
+per provider (same "kept separate for testability" pattern as `build_request`) turns a null/empty
+content into a specific, actionable error when `finish_reason == "length"` ("the model likely spent
+its entire max_tokens budget on internal reasoning... try raising max_tokens"), or a generic
+empty-content error otherwise — the failed Run is still persisted with this message like any other
+provider error. 10 new unit tests across the three files. `cargo check`/`clippy -D
+warnings`/`fmt --check`/`test` (50 passing) and `npm run build` clean.
+
+Flagged by the user as only the crash fix, not the full story — they consider "thinking" model
+support a broader unresolved problem (token budget spent on invisible reasoning, no way yet to see
+or control that) and want to discuss it further next. See TODO.md's entry for what's deliberately
+left open (reasoning-effort control, higher defaults for known-reasoning models, surfacing
+reasoning-token usage) — the models.dev `reasoning`/`reasoning_options` fields needed for this were
+already parsed and kept back during the models.dev migration for exactly this kind of follow-up.
+Not yet committed — three fixes done in this session (timeout, text-only filter, thinking-model
+crash) are all sitting together, waiting on the user's review before commit/push.
+
+**Reasoning-effort control + saner defaults, implemented 2026-09-11.** Follow-up discussion to the
+crash fix above: the user asked for (1) a higher default `max_tokens` so reasoning models have
+room to think without running out of budget, (2) a UI control to pick reasoning effort when a
+model supports it — hidden entirely when it doesn't, consistent with how temperature/top_p are
+already capability-gated — and (3) a lower default temperature, reasoning that a prompt-testing
+tool benefits more from reproducible runs than from sampling variety. Agreed via `AskUserQuestion`:
+`max_tokens` default → 4096 (from 1024), temperature default → 0 (from 0.7), and reasoning-effort
+scope limited to the `"effort"`-style control only (not `budget_tokens`/`toggle`) for this pass.
+
+Before wiring anything, verified via web search whether models.dev's `"effort"` abstraction maps
+to a real API field per provider — it doesn't uniformly. Confirmed real, working parameters for
+**OpenAI** (`reasoning_effort`, top-level string), **Mistral** (`reasoning_effort`, top-level
+string — but only on the mistral-small/medium-latest line; `magistral-*` reasons natively and
+rejects the field outright, which matches models.dev reporting no `"effort"` option for magistral
+either, so no name-based heuristic was needed), **Gemini** (`generationConfig.thinkingConfig.
+thinkingLevel`, nested, different field name entirely), and **OpenRouter** (`reasoning: {effort}`,
+its own unified nested object, translated internally to whatever the underlying model needs).
+**Anthropic was deliberately excluded**: models.dev lists `"effort"` options for Anthropic models
+too, but Anthropic's real API only has `thinking: {budget_tokens}` — no matching field to send an
+effort string to — so this stays unimplemented until that value→budget_tokens translation is built.
+
+Implemented:
+- `domain::ModelInfo.reasoning_effort_levels: Option<Vec<String>>` (mirrors how `pricing` was
+  added) and `domain::GenerationParams.reasoning_effort: Option<String>`.
+- `ModelsDevCache::reasoning_effort_levels` — a plain mirror of models.dev's `"effort"`-type
+  `reasoning_options` values, provider-agnostic (doesn't know which providers we've wired).
+- `commands::providers::list_models` gates the enrichment through a new
+  `supports_reasoning_effort_wiring` allowlist (OpenAI/Mistral/Gemini/OpenRouter, not Anthropic) —
+  the provider-aware decision lives at this command boundary, same pattern as pricing enrichment.
+- Each of the four providers' `build_request` now forwards `params.reasoning_effort` in its own
+  wire shape (OpenAI/Mistral: top-level field; Gemini: new `ThinkingConfig` nested under
+  `generationConfig`; OpenRouter: new `ReasoningConfig` nested under a `reasoning` field) — none
+  gate on their own reasoning-model heuristics, since the frontend only ever sets a value from a
+  model's own reported levels in the first place.
+- `commands::experiments::ComparisonColumn` gained its own `reasoning_effort: Option<String>`,
+  distinct from the shared `RunExperimentInput::params` — discussed with the user via
+  `AskUserQuestion` given Compare's columns can each have a different model with non-overlapping
+  valid values (e.g. OpenAI's minimal/low/medium/high vs. Mistral's none/high); a single global
+  value could be flatly invalid for another column. `run_column` overrides `params.reasoning_effort`
+  with the column's own value before calling `generate()`.
+- New `components/playground/ReasoningEffortSelect.vue`: renders nothing when
+  `reasoning_effort_levels` is empty/absent (the common case — most Gemini reasoning models have
+  no user-facing control at all), otherwise a plain `Select` over the model's own levels.
+  Playground uses one shared instance (reset to unset whenever `selectedModelId` changes); Compare
+  renders one per column (reset on provider/model change or a forced model-list refresh) since each
+  column needs its own value and its own valid set.
+- `stores/promptDraft.ts`: `temperature` 0.7→0, `maxTokens` 1024→4096.
+- 16 new backend unit tests (models_dev's `reasoning_effort_levels`, each provider's request-shape
+  forwarding). `cargo check`/`clippy -D warnings`/`fmt --check`/`test` (56 passing) and
+  `npm run build` (vue-tsc across the new component/view wiring) all clean. Bindings regenerated
+  incidentally by the user's own already-running `tauri dev` session picking up the Rust changes
+  via its file watcher — confirmed the rebuilt binary stayed up with no panic, no separate restart
+  needed on my end.
+
+Not yet committed — sitting alongside the earlier three fixes in this same session, all pending
+the user's review.
+
+**Anthropic reasoning-effort support added, 2026-09-11 (same-day correction).** The user tried the
+feature above, confirmed it works, then asked specifically about Anthropic having nothing —
+comparing it to how some gateways ("Hermès" in the transcript — unclear exactly what the user meant
+by the name, but the mechanism they described was unambiguous) map an effort label to a
+`budget_tokens` value themselves. Before building that heuristic, re-checked Anthropic's *current*
+docs rather than trusting the "Anthropic only has `thinking: {budget_tokens}`" conclusion from
+earlier in this session — which turned out to be stale/incomplete. Anthropic in fact has a real,
+direct, top-level `output_config.effort` field (`"low"`/`"medium"`/`"high"`/`"xhigh"`/`"max"`),
+independent of `thinking` mode entirely, on `claude-fable-5-1`, `claude-mythos-5-1`, `claude-fable-5`,
+`claude-mythos-5`, `claude-mythos-preview`, `claude-opus-5`, `claude-opus-4-8`, `claude-opus-4-7`,
+`claude-opus-4-6`, `claude-opus-4-5-20251101`, `claude-sonnet-5`, `claude-sonnet-4-6` — confirmed
+this matches models.dev's own per-model `"effort"` list exactly, including correctly leaving it off
+Sonnet 4.5/Haiku 4.5 (Anthropic's older extended-thinking-only generation, no effort concept at
+all). No heuristic/budget_tokens-guessing needed after all — same simple "just forward the string"
+mechanism as the other four providers.
+
+Implemented: `providers::anthropic::MessagesRequest` gained `output_config: Option<OutputConfig>`
+(new `OutputConfig { effort: String }`), forwarding `params.reasoning_effort` unconditionally, same
+pattern as OpenAI/Mistral. `commands::providers::supports_reasoning_effort_wiring` now includes
+`ProviderId::Anthropic` — all five implemented providers support this now, none excluded. No
+frontend changes needed at all: `ReasoningEffortSelect.vue` already worked generically off whatever
+`reasoning_effort_levels` the backend populated, so Claude models just started showing the selector
+once the backend started filling it in for them. 2 new unit tests (effort forwarded when set,
+`output_config` omitted when unset). `cargo check`/`clippy -D warnings`/`fmt --check`/`test`
+(58 passing) and `npm run build` clean.
+
+Not yet committed.
+
 ## Done so far
 
 **Step 0 — Bootstrap** (committed & pushed):

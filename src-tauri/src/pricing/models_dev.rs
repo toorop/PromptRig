@@ -13,12 +13,14 @@
 //! OpenAI/Anthropic/Google/Mistral/OpenRouter) and cross-checked against this project's own
 //! previously hand-curated `pricing.json` (`gpt-4o-mini` matched exactly) before replacing it.
 //!
-//! Only [`ModelsDevCache::price`] and [`ModelsDevCache::is_deprecated`] are used today (pricing,
-//! and filtering deprecated models out of the picker — see `commands::providers::list_models`).
-//! The rest of each entry's fields (modalities, reasoning effort levels, tool-call/structured-
-//! output support, context limits, ...) are parsed and kept anyway: the user explicitly asked
-//! for this groundwork now, ahead of planned features (multimodal-aware UI, reasoning-effort
-//! selection) that will want it without redoing the fetch/parse layer.
+//! Only [`ModelsDevCache::price`], [`ModelsDevCache::is_deprecated`],
+//! [`ModelsDevCache::is_text_only`], and [`ModelsDevCache::reasoning_effort_levels`] are used
+//! today (pricing, filtering deprecated/non-text models out of the picker, and surfacing
+//! reasoning-effort levels for the models we can send them to — see
+//! `commands::providers::list_models`). The rest of each entry's fields (tool-call/structured-
+//! output support, context limits, ...) are parsed and kept anyway: the user explicitly asked for
+//! this groundwork now, ahead of planned features that will want it without redoing the
+//! fetch/parse layer.
 //!
 //! Fetched at most once per app session and kept in memory for the rest of it — restart the app
 //! to check for an update. A failed fetch is remembered for the rest of the session rather than
@@ -94,8 +96,8 @@ pub(crate) struct ReasoningOption {
     pub(crate) values: Option<Vec<Option<String>>>,
 }
 
+/// Both fields are read by [`ModelsDevCache::is_text_only`].
 #[derive(Debug, Clone, Deserialize)]
-#[allow(dead_code)]
 pub(crate) struct Modalities {
     pub(crate) input: Vec<String>,
     pub(crate) output: Vec<String>,
@@ -209,6 +211,59 @@ impl ModelsDevCache {
             .await
             .and_then(|entry| entry.status)
             .is_some_and(|status| status == "deprecated")
+    }
+
+    /// Whether models.dev's modality data says this model fits a plain text-in/text-out chat
+    /// call — the only thing this app sends today (no image/audio/video attachments, no
+    /// speech/vision output). A model must accept `"text"` input and produce *only* `"text"`
+    /// output: a model that also emits image/audio (e.g. an image-generation or realtime-voice
+    /// variant) is excluded even though it happens to emit text too, since that's not the flow
+    /// this app drives it through. Verified against the real `api.json`: this cleanly separates
+    /// image/video/audio-output models (`gpt-image-*`, `veo-*`, `gemini-*-image`, TTS/realtime
+    /// models) from ordinary multimodal-*input* chat models (`gpt-4o`, `claude-*`, `gemini-*`),
+    /// which still pass since their input accepting images doesn't matter when we never send any.
+    ///
+    /// Unmapped providers and models with no modality data at all return `true` (keep) — same
+    /// "missing data never hides a model" policy as `is_deprecated`.
+    pub(crate) async fn is_text_only(&self, provider: ProviderId, model_id: &str) -> bool {
+        let Some(modalities) = self
+            .lookup(provider, model_id)
+            .await
+            .and_then(|entry| entry.modalities)
+        else {
+            return true;
+        };
+
+        let accepts_text_input = modalities.input.iter().any(|m| m == "text");
+        let text_only_output = modalities.output.len() == 1 && modalities.output[0] == "text";
+        accepts_text_input && text_only_output
+    }
+
+    /// The reasoning-effort levels models.dev lists for this model (e.g. `["low", "medium",
+    /// "high"]`), or `None` when it has no `"effort"`-type `reasoning_options` entry at all —
+    /// either because it isn't a reasoning model, or because it reasons unconditionally with no
+    /// user-facing control (most Gemini models: `reasoning: true` but no `reasoning_options`).
+    ///
+    /// This is purely a mirror of models.dev's data — it says nothing about whether *this app*
+    /// can actually send a resolved value to the model's real API (though as of this writing,
+    /// every implemented provider does have a real matching field — see
+    /// `commands::providers::supports_reasoning_effort_wiring`). That decision is deliberately
+    /// kept provider-aware and made at the call site instead of baked in here.
+    pub(crate) async fn reasoning_effort_levels(
+        &self,
+        provider: ProviderId,
+        model_id: &str,
+    ) -> Option<Vec<String>> {
+        let options = self.lookup(provider, model_id).await?.reasoning_options?;
+        let values: Vec<String> = options
+            .into_iter()
+            .find(|option| option.kind == "effort")?
+            .values?
+            .into_iter()
+            .flatten()
+            .collect();
+
+        (!values.is_empty()).then_some(values)
     }
 
     async fn lookup(&self, provider: ProviderId, model_id: &str) -> Option<ModelEntry> {
@@ -349,7 +404,8 @@ mod tests {
             "models": {
                 "gpt-4o-mini": {
                     "status": null,
-                    "cost": { "input": 0.15, "output": 0.6 }
+                    "cost": { "input": 0.15, "output": 0.6 },
+                    "modalities": { "input": ["text", "image"], "output": ["text"] }
                 },
                 "gpt-4-turbo": {
                     "status": "deprecated",
@@ -357,6 +413,20 @@ mod tests {
                 },
                 "some-preview-model": {
                     "status": "beta"
+                },
+                "gpt-image-1": {
+                    "status": null,
+                    "modalities": { "input": ["text", "image"], "output": ["text", "image"] }
+                },
+                "whisper-1": {
+                    "status": null,
+                    "modalities": { "input": ["audio"], "output": ["text"] }
+                },
+                "gpt-5-nano": {
+                    "status": null,
+                    "reasoning_options": [
+                        { "type": "effort", "values": ["minimal", "low", "medium", "high"] }
+                    ]
                 }
             }
         },
@@ -364,6 +434,19 @@ mod tests {
             "models": {
                 "ministral-3b-latest": {
                     "cost": { "input": 0.04, "output": 0.04 }
+                },
+                "magistral-small": {
+                    "reasoning_options": []
+                }
+            }
+        },
+        "anthropic": {
+            "models": {
+                "claude-sonnet-4-6": {
+                    "reasoning_options": [
+                        { "type": "effort", "values": ["low", "medium", "high", "max"] },
+                        { "type": "budget_tokens" }
+                    ]
                 }
             }
         },
@@ -382,9 +465,9 @@ mod tests {
         // The exact real-world case this design fixes: a rolling `-latest` alias present as its
         // own entry, not needing any fuzzy resolution.
         assert!(data.contains_key(&(ProviderId::Mistral, "ministral-3b-latest".to_string())));
-        // 3 openai entries + 1 mistral entry; "some-unmapped-vendor" isn't a slug any
-        // `ProviderId` maps to, so its model must not show up under any key at all.
-        assert_eq!(data.len(), 4);
+        // 6 openai entries + 2 mistral entries + 1 anthropic entry; "some-unmapped-vendor" isn't
+        // a slug any `ProviderId` maps to, so its model must not show up under any key at all.
+        assert_eq!(data.len(), 9);
     }
 
     #[tokio::test]
@@ -441,6 +524,89 @@ mod tests {
             !cache
                 .is_deprecated(ProviderId::OpenAi, "some-preview-model")
                 .await
+        );
+    }
+
+    #[tokio::test]
+    async fn is_text_only_reflects_modality_data() {
+        let cache = ModelsDevCache::new(std::env::temp_dir());
+        *cache.test_override.lock().unwrap() =
+            Some(build_models_dev_data(SAMPLE_RESPONSE).unwrap());
+
+        // Accepts text input, only emits text: a normal (if also image-capable) chat model.
+        assert!(cache.is_text_only(ProviderId::OpenAi, "gpt-4o-mini").await);
+        // Emits image output alongside text: an image-generation variant, excluded.
+        assert!(!cache.is_text_only(ProviderId::OpenAi, "gpt-image-1").await);
+        // Only accepts audio input: a transcription model this app can never drive, excluded.
+        assert!(!cache.is_text_only(ProviderId::OpenAi, "whisper-1").await);
+        // No modality data at all: missing data never hides a model, same as `is_deprecated`.
+        assert!(
+            cache
+                .is_text_only(ProviderId::OpenAi, "some-preview-model")
+                .await
+        );
+        assert!(cache.is_text_only(ProviderId::OpenAi, "nonexistent").await);
+    }
+
+    #[tokio::test]
+    async fn reasoning_effort_levels_reads_the_effort_option() {
+        let cache = ModelsDevCache::new(std::env::temp_dir());
+        *cache.test_override.lock().unwrap() =
+            Some(build_models_dev_data(SAMPLE_RESPONSE).unwrap());
+
+        assert_eq!(
+            cache
+                .reasoning_effort_levels(ProviderId::OpenAi, "gpt-5-nano")
+                .await,
+            Some(vec![
+                "minimal".to_string(),
+                "low".to_string(),
+                "medium".to_string(),
+                "high".to_string()
+            ])
+        );
+        // Anthropic lists an "effort" option too, alongside "budget_tokens" (its older,
+        // model-limited control) — this function only mirrors models.dev's data; which entries
+        // this app actually forwards to a real API field is decided at the call site.
+        assert_eq!(
+            cache
+                .reasoning_effort_levels(ProviderId::Anthropic, "claude-sonnet-4-6")
+                .await,
+            Some(vec![
+                "low".to_string(),
+                "medium".to_string(),
+                "high".to_string(),
+                "max".to_string()
+            ])
+        );
+    }
+
+    #[tokio::test]
+    async fn reasoning_effort_levels_is_none_without_an_effort_option() {
+        let cache = ModelsDevCache::new(std::env::temp_dir());
+        *cache.test_override.lock().unwrap() =
+            Some(build_models_dev_data(SAMPLE_RESPONSE).unwrap());
+
+        // A model with no reasoning_options at all.
+        assert_eq!(
+            cache
+                .reasoning_effort_levels(ProviderId::OpenAi, "gpt-4o-mini")
+                .await,
+            None
+        );
+        // A model with an empty reasoning_options list (magistral-small in the real data:
+        // reasons natively, no user-facing control).
+        assert_eq!(
+            cache
+                .reasoning_effort_levels(ProviderId::Mistral, "magistral-small")
+                .await,
+            None
+        );
+        assert_eq!(
+            cache
+                .reasoning_effort_levels(ProviderId::OpenAi, "nonexistent")
+                .await,
+            None
         );
     }
 

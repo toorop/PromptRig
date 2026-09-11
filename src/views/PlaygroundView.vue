@@ -18,6 +18,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import GenerationParamsFields from "@/components/playground/GenerationParamsFields.vue";
 import ModelCombobox from "@/components/playground/ModelCombobox.vue";
+import ReasoningEffortSelect from "@/components/playground/ReasoningEffortSelect.vue";
 import ResultPanel from "@/components/playground/ResultPanel.vue";
 import CopyButton from "@/components/CopyButton.vue";
 import ResetButton from "@/components/ResetButton.vue";
@@ -61,6 +62,14 @@ function saveLastSelection(selection: LastSelection) {
 
 const selectedProvider = ref<ProviderId>();
 const selectedModelId = ref<string>();
+// Not persisted (unlike system/user prompt) and reset whenever the model changes (see the watch
+// below) — a level valid for one model (e.g. "medium") may not exist at all for another (e.g.
+// Mistral's mistral-small-latest only offers "none"/"high").
+const reasoningEffort = ref<string>();
+
+watch(selectedModelId, () => {
+  reasoningEffort.value = undefined;
+});
 
 const running = ref(false);
 const run = ref<Run | null>(null);
@@ -148,6 +157,7 @@ async function runGeneration() {
       temperature: temperature.value ?? null,
       top_p: topP.value ?? null,
       max_tokens: maxTokens.value ?? null,
+      reasoning_effort: reasoningEffort.value ?? null,
     },
   });
 
@@ -214,6 +224,12 @@ async function runGeneration() {
           </Tooltip>
         </div>
       </div>
+
+      <ReasoningEffortSelect
+        v-model="reasoningEffort"
+        field-id="reasoning-effort"
+        :levels="selectedModel?.reasoning_effort_levels"
+      />
 
       <Button class="ml-auto" size="lg" :disabled="!canRun" @click="runGeneration">
         {{ running ? "Running…" : "Run" }}

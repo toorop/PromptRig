@@ -38,9 +38,14 @@ export const usePromptDraftStore = defineStore("promptDraft", () => {
   const stored = loadStoredDraft();
   const systemPrompt = ref(stored.systemPrompt ?? "");
   const userPrompt = ref(stored.userPrompt ?? "");
-  const temperature = ref<number>(0.7);
+  // 0 (not the more common 0.7) because this app's job is comparing prompt variants — sampling
+  // noise on top of that just makes runs harder to compare. 4096 (not 1024) leaves real headroom
+  // for reasoning ("thinking") models, which can spend a chunk of the budget on invisible
+  // reasoning before ever emitting visible text — see providers::openai/mistral/openrouter's
+  // `extract_text` for what happens when that budget runs out before any text does.
+  const temperature = ref<number>(0);
   const topP = ref<number>(1);
-  const maxTokens = ref<number>(1024);
+  const maxTokens = ref<number>(4096);
 
   watch([systemPrompt, userPrompt], ([systemPrompt, userPrompt]) => {
     saveStoredDraft({ systemPrompt, userPrompt });

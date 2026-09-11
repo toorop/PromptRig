@@ -87,6 +87,20 @@ struct MessagesRequest<'a> {
     system: &'a str,
     messages: Vec<Message<'a>>,
     max_tokens: u32,
+    /// A real, top-level Messages API field (verified against Anthropic's own docs before wiring
+    /// this in — training-era knowledge of this API only knew about the older, model-limited
+    /// `thinking: {budget_tokens}` control, which doesn't work here). `output_config.effort`
+    /// works independently of `thinking` mode and needs no other field set alongside it; only
+    /// models.dev's own per-model `"effort"` list decides which models get a value at all (kept
+    /// out of Anthropic's older extended-thinking-only models — Sonnet 4.5, Haiku 4.5 — which
+    /// don't support it and would 400).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    output_config: Option<OutputConfig>,
+}
+
+#[derive(Serialize)]
+struct OutputConfig {
+    effort: String,
 }
 
 fn build_request<'a>(
@@ -103,6 +117,10 @@ fn build_request<'a>(
             content: user_prompt,
         }],
         max_tokens: params.max_tokens.unwrap_or(DEFAULT_MAX_TOKENS),
+        output_config: params
+            .reasoning_effort
+            .clone()
+            .map(|effort| OutputConfig { effort }),
     }
 }
 
@@ -181,6 +199,7 @@ impl LlmProvider for AnthropicProvider {
                 // "unknown" rather than a real limit — treat it the same as absent.
                 context_window: listing.max_input_tokens.filter(|&n| n > 0),
                 pricing: None,
+                reasoning_effort_levels: None,
             })
             .collect();
 
@@ -267,6 +286,7 @@ mod tests {
             temperature: Some(0.7),
             top_p: Some(0.9),
             max_tokens: Some(200),
+            reasoning_effort: None,
         };
 
         let request = build_request("claude-opus-5", "system", "user", &params);
@@ -275,6 +295,31 @@ mod tests {
         assert!(json.get("temperature").is_none());
         assert!(json.get("top_p").is_none());
         assert_eq!(json["max_tokens"], 200);
+    }
+
+    #[test]
+    fn reasoning_effort_is_forwarded_as_output_config_effort() {
+        let params = GenerationParams {
+            temperature: None,
+            top_p: None,
+            max_tokens: None,
+            reasoning_effort: Some("high".into()),
+        };
+
+        let request = build_request("claude-opus-5", "system", "user", &params);
+        let json = serde_json::to_value(&request).unwrap();
+
+        assert_eq!(json["output_config"]["effort"], "high");
+    }
+
+    #[test]
+    fn output_config_is_omitted_when_reasoning_effort_is_unset() {
+        let params = GenerationParams::default();
+
+        let request = build_request("claude-sonnet-4-5", "system", "user", &params);
+        let json = serde_json::to_value(&request).unwrap();
+
+        assert!(json.get("output_config").is_none());
     }
 
     #[test]

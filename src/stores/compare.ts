@@ -13,6 +13,13 @@ export interface CompareColumn {
   key: string;
   provider?: ProviderId;
   modelId?: string;
+  // Column-specific, unlike temperature/top_p/max_tokens (shared across all columns via
+  // stores/promptDraft.ts): different models have different, non-overlapping sets of valid
+  // reasoning-effort values (see ModelInfo.reasoning_effort_levels), so this can't be one global
+  // control the way the other params are. Reset to undefined whenever this column's model
+  // changes — see CompareView.vue's ModelCombobox handler — since a value valid for the old
+  // model may not be valid for the new one.
+  reasoningEffort?: string;
   run: Run | null;
   runError: string | null;
   running: boolean;
@@ -31,6 +38,7 @@ function makeColumn(): CompareColumn {
     key: `col-${nextKey}`,
     provider: undefined,
     modelId: undefined,
+    reasoningEffort: undefined,
     run: null,
     runError: null,
     running: false,

@@ -41,6 +41,15 @@ pub struct ModelInfo {
     /// modules themselves — `providers::*::list_models()` stays unaware pricing exists at all,
     /// same separation as `Run`'s own cost estimation.
     pub pricing: Option<ModelPricing>,
+    /// The reasoning-effort levels this model accepts (e.g. `["low", "medium", "high"]`), in
+    /// whatever order models.dev lists them — `None` when the model has no such control (either
+    /// it's not a reasoning model, or it reasons unconditionally with nothing to tune, like most
+    /// Gemini models, or — for Anthropic — its older extended-thinking-only generation, which has
+    /// no `effort` concept at all). Filled in by `commands::providers::list_models` (see
+    /// `pricing::models_dev::ModelsDevCache::reasoning_effort_levels` and
+    /// `commands::providers::supports_reasoning_effort_wiring`) for every implemented provider —
+    /// each has a real API field this app can send a resolved value to.
+    pub reasoning_effort_levels: Option<Vec<String>>,
 }
 
 /// A per-million-token rate for display, not a computed cost (see `ModelInfo::pricing`) —
@@ -66,6 +75,12 @@ pub struct GenerationParams {
     pub temperature: Option<f64>,
     pub top_p: Option<f64>,
     pub max_tokens: Option<u32>,
+    /// One of the model's own `ModelInfo::reasoning_effort_levels` (e.g. `"low"`/`"high"`), or
+    /// `None` to let the model reason with its own default behavior. The frontend only lets the
+    /// user pick a value the *currently selected* model actually reports supporting — see
+    /// `ReasoningEffortSelect.vue` — so a provider module can forward this as-is without
+    /// re-validating it against a fixed enum here.
+    pub reasoning_effort: Option<String>,
 }
 
 #[cfg(test)]
@@ -79,5 +94,6 @@ mod tests {
         assert_eq!(params.temperature, None);
         assert_eq!(params.top_p, None);
         assert_eq!(params.max_tokens, None);
+        assert_eq!(params.reasoning_effort, None);
     }
 }

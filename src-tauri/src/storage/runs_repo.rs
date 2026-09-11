@@ -210,6 +210,7 @@ mod tests {
                 temperature: Some(0.7),
                 top_p: None,
                 max_tokens: Some(256),
+                reasoning_effort: None,
             },
             started_at: DateTime::parse_from_rfc3339("2026-01-01T12:00:00Z")
                 .unwrap()

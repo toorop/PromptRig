@@ -116,6 +116,11 @@ struct ChatCompletionRequest<'a> {
     max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     max_completion_tokens: Option<u32>,
+    /// `"minimal"`/`"low"`/`"medium"`/`"high"` (exact allowed set is model-dependent — see
+    /// `domain::ModelInfo::reasoning_effort_levels`). A real, top-level Chat Completions field
+    /// for reasoning models, verified against OpenAI's docs before wiring this in.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reasoning_effort: Option<String>,
 }
 
 /// Builds the request body for one generation call. Kept separate from `generate` so the
@@ -147,6 +152,11 @@ fn build_request<'a>(
         top_p: if reasoning { None } else { params.top_p },
         max_tokens: if reasoning { None } else { params.max_tokens },
         max_completion_tokens: if reasoning { params.max_tokens } else { None },
+        // Not gated on `reasoning` the way sampling params above are: the frontend only ever
+        // sets this from a model's own `reasoning_effort_levels` (populated exactly when
+        // models.dev reports an "effort" option), so a value only ever arrives for a model that
+        // actually accepts it.
+        reasoning_effort: params.reasoning_effort.clone(),
     }
 }
 
@@ -159,11 +169,43 @@ struct ChatCompletionResponse {
 #[derive(Deserialize)]
 struct Choice {
     message: ChatCompletionMessage,
+    finish_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct ChatCompletionMessage {
-    content: String,
+    /// `null` in the real API when a reasoning model (o-series, `gpt-5.6`/`gpt-6`) spends its
+    /// entire `max_completion_tokens` budget on internal reasoning before emitting any visible
+    /// output — was `String` until this was hit live (`finish_reason: "length"`, `content: null`).
+    /// See `extract_text` for how this is turned into an actionable error instead of a raw
+    /// deserialization failure.
+    content: Option<String>,
+}
+
+/// Pulls the model's text out of the first choice. Kept separate from `generate` (which owns
+/// the actual HTTP call) so this exact shape — including the reasoning-model empty-content case
+/// above — can be unit-tested without a real API call.
+fn extract_text(choices: Vec<Choice>) -> AppResult<String> {
+    let choice = choices
+        .into_iter()
+        .next()
+        .ok_or_else(|| AppError::Provider("OpenAI response had no choices".into()))?;
+
+    choice
+        .message
+        .content
+        .filter(|c| !c.is_empty())
+        .ok_or_else(|| {
+            if choice.finish_reason.as_deref() == Some("length") {
+                AppError::Provider(
+                    "OpenAI returned no content — the model likely spent its entire max_tokens \
+                 budget on internal reasoning before answering. Try raising max_tokens."
+                        .into(),
+                )
+            } else {
+                AppError::Provider("OpenAI response had empty content".into())
+            }
+        })
 }
 
 #[derive(Deserialize)]
@@ -227,6 +269,7 @@ impl LlmProvider for OpenAiProvider {
                 // OpenAI's model list doesn't include context window sizes.
                 context_window: None,
                 pricing: None,
+                reasoning_effort_levels: None,
             })
             .collect();
 
@@ -268,12 +311,7 @@ impl LlmProvider for OpenAiProvider {
             .map_err(|e| AppError::Provider(format!("unexpected OpenAI response: {e}")))?;
         let duration_ms = started.elapsed().as_millis() as u32;
 
-        let text = body
-            .choices
-            .into_iter()
-            .next()
-            .map(|choice| choice.message.content)
-            .ok_or_else(|| AppError::Provider("OpenAI response had no choices".into()))?;
+        let text = extract_text(body.choices)?;
 
         let usage = body.usage.map(|usage| Usage {
             input_tokens: usage.prompt_tokens,
@@ -292,6 +330,38 @@ impl LlmProvider for OpenAiProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn choice(content: Option<&str>, finish_reason: Option<&str>) -> Choice {
+        Choice {
+            message: ChatCompletionMessage {
+                content: content.map(str::to_string),
+            },
+            finish_reason: finish_reason.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn extract_text_reads_ordinary_content() {
+        let text = extract_text(vec![choice(Some("hello"), Some("stop"))]).unwrap();
+        assert_eq!(text, "hello");
+    }
+
+    #[test]
+    fn extract_text_reports_the_reasoning_budget_case() {
+        let err = extract_text(vec![choice(None, Some("length"))]).unwrap_err();
+        assert!(err.to_string().contains("internal reasoning"));
+    }
+
+    #[test]
+    fn extract_text_reports_a_generic_error_for_other_empty_content() {
+        let err = extract_text(vec![choice(None, Some("content_filter"))]).unwrap_err();
+        assert!(!err.to_string().contains("internal reasoning"));
+    }
+
+    #[test]
+    fn extract_text_rejects_no_choices() {
+        assert!(extract_text(vec![]).is_err());
+    }
 
     #[test]
     fn filters_out_non_chat_models() {
@@ -318,6 +388,7 @@ mod tests {
             temperature: Some(0.7),
             top_p: Some(0.9),
             max_tokens: Some(256),
+            reasoning_effort: None,
         };
 
         let request = build_request("gpt-4o-mini", "system", "user", &params);
@@ -335,6 +406,7 @@ mod tests {
             temperature: Some(0.7),
             top_p: Some(0.9),
             max_tokens: Some(256),
+            reasoning_effort: None,
         };
 
         let request = build_request("gpt-6-astra", "system", "user", &params);
@@ -344,5 +416,20 @@ mod tests {
         assert!(json.get("top_p").is_none());
         assert!(json.get("max_tokens").is_none());
         assert_eq!(json["max_completion_tokens"], 256);
+    }
+
+    #[test]
+    fn reasoning_effort_is_forwarded_when_set() {
+        let params = GenerationParams {
+            temperature: None,
+            top_p: None,
+            max_tokens: None,
+            reasoning_effort: Some("high".into()),
+        };
+
+        let request = build_request("gpt-6-astra", "system", "user", &params);
+        let json = serde_json::to_value(&request).unwrap();
+
+        assert_eq!(json["reasoning_effort"], "high");
     }
 }
