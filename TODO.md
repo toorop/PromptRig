@@ -618,7 +618,7 @@ pointed at the same directory got a `304` and returned the identical price from 
 (a temp directory per test, no real network call). `cargo check`/`clippy -D warnings`/
 `fmt --check`/`test` (39 passing, 1 ignored) all clean.
 
-### Slow/no connection could stall the UI on the models.dev fetch — user idea, 2026-09-11 (not started)
+### Slow/no connection could stall the UI on the models.dev fetch — user idea, 2026-09-11 (option 1 done 2026-09-11)
 
 Raised right after the `ETag`/disk-cache work above, but deliberately **not implemented yet** —
 the user is out of session time and asked to just note it down for a later session, not act on
@@ -653,6 +653,12 @@ weigh next session, not decided yet:
 
 No decision needed right now — just verify the timeout gap against the real `reqwest` behavior,
 and ask the user which combination of (1)/(2)/(3) they want before writing any code.
+
+**Option 1 done, 2026-09-11**: `ModelsDevCache::new` now builds its `Client` with a 10s
+`.timeout(...)` instead of `Client::new()`'s no-timeout default — a stalled connection now fails
+into the existing disk-cache fallback in `fetch()` instead of hanging the awaiting command
+indefinitely. Options 2 (Settings opt-out toggle) and 3 (non-blocking fetch) remain unstarted;
+not decided whether either is still wanted now that the worst case (indefinite hang) is fixed.
 
 ### `CHANGELOG.md` + `v0.3.0` release — done 2026-09-11
 

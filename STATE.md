@@ -306,6 +306,14 @@ passing: the "Status: pre-release" callout and "No release has been tagged yet" 
 Installation — both dated back to before `v0.1.0` ever shipped. Version bumped to `0.3.0` in
 `package.json`/`src-tauri/Cargo.toml`/`src-tauri/tauri.conf.json` (+ `Cargo.lock`).
 
+**models.dev fetch timeout fixed, 2026-09-11.** Picked up the first of the three options noted in
+TODO.md's "Slow/no connection could stall the UI" entry: `ModelsDevCache::new` now builds its
+`reqwest::Client` with a 10s `.timeout(...)` instead of `Client::new()`'s no-timeout default, so a
+stalled connection fails into the existing disk-cache fallback in `fetch()` instead of hanging the
+awaiting command indefinitely. `cargo check`/`clippy -D warnings`/`fmt --check`/`test` (39 passing,
+1 ignored) all clean. The Settings opt-out toggle and non-blocking-fetch options from that same
+TODO entry are still unstarted and undecided — not needed to close out the worst-case hang.
+
 ## Done so far
 
 **Step 0 — Bootstrap** (committed & pushed):

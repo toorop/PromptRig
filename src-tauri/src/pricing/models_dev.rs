@@ -35,6 +35,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::Duration;
 
 #[cfg(test)]
 use std::sync::Mutex as StdMutex;
@@ -49,6 +50,11 @@ use crate::domain::{AppError, AppResult, ProviderId};
 use super::ModelPrice;
 
 const MODELS_DEV_API_URL: &str = "https://models.dev/api.json";
+
+/// Without this, a stalled connection (very slow/dead network) would hang indefinitely instead
+/// of failing into the disk-cache fallback `fetch()` already has — this is the fix for that gap,
+/// not a tuned value for the payload size.
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// One model's entry as published by models.dev. Field names match the JSON exactly (`#[serde]`
 /// renames aren't needed) so this stays a straightforward mirror of the upstream shape.
@@ -147,7 +153,13 @@ pub struct ModelsDevCache {
 impl ModelsDevCache {
     pub fn new(cache_dir: PathBuf) -> Self {
         Self {
-            http: Client::new(),
+            // `Client::new()` itself would panic the same way on a builder error; `.build()`
+            // just makes that (unreachable in practice — no TLS/proxy config to misconfigure
+            // here) explicit alongside the timeout.
+            http: Client::builder()
+                .timeout(REQUEST_TIMEOUT)
+                .build()
+                .expect("failed to build models.dev HTTP client"),
             state: Mutex::new(LoadState::NotLoaded),
             cache_dir,
             #[cfg(test)]
