@@ -106,13 +106,12 @@ At minimum, mirror the existing providers' test shape:
 Run `cargo test`, `cargo clippy --all-targets -- -D warnings`, and `cargo fmt --check` in
 `src-tauri/` before considering the provider done (see [docs/development.md](./development.md)).
 
-## 5. Pricing (optional)
+## 5. Pricing (usually nothing to do)
 
-If the provider doesn't expose pricing through its own API, it doesn't need a `pricing.json`
-entry — `estimate_cost` already falls back to OpenRouter's own pricing for a fuzzy-matched
-equivalent model when available (see `pricing/openrouter_fallback.rs`), and to `None` (shown as
-"—" in the UI) otherwise. Only add an entry to `pricing/pricing.json` if you have confirmed,
-current pricing you want to hand-pin as exact rather than relying on the approximation.
+Cost estimation comes from [models.dev](https://models.dev)'s public model registry (see
+`pricing/models_dev.rs`), looked up by `(ProviderId, model_id)` — nothing to add here for a new
+provider unless models.dev doesn't cover it under any of its provider slugs yet
+(`provider_slug` in that file), in which case pricing simply shows "—" until it does.
 
 ## 6. Test manually against the real API
 

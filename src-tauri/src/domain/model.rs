@@ -37,8 +37,8 @@ pub struct ModelInfo {
     /// A per-token rate, shown next to the model in the picker so the cost of a choice is
     /// visible *before* running anything — unlike `Run.estimated_cost_usd`, which only exists
     /// once a Run has real token usage to multiply against. Filled in by
-    /// `commands::providers::list_models` (see `pricing::resolve_rate`), not by the provider
-    /// modules themselves — `providers::*::list_models()` stays unaware of pricing entirely,
+    /// `commands::providers::list_models` (see `pricing::models_dev`), not by the provider
+    /// modules themselves — `providers::*::list_models()` stays unaware pricing exists at all,
     /// same separation as `Run`'s own cost estimation.
     pub pricing: Option<ModelPricing>,
 }
@@ -50,8 +50,9 @@ pub struct ModelInfo {
 pub struct ModelPricing {
     pub input_per_million_usd: f64,
     pub output_per_million_usd: f64,
-    /// `true` when this rate came from the OpenRouter cross-provider approximation rather than
-    /// our own hand-curated `pricing.json` or OpenRouter's own real price for its own models.
+    /// Always `false` today — models.dev (see `pricing::models_dev`) gives each provider's own
+    /// real price directly, no cross-provider approximation involved. Kept rather than removed
+    /// in case a future pricing gap ever needs a lower-confidence fallback again.
     pub is_estimate: bool,
 }
 

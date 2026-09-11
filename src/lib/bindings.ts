@@ -10,11 +10,13 @@ export const commands = {
 	listProviders: () => typedError<ProviderStatus[], AppError>(__TAURI_INVOKE("list_providers")),
 	testProviderConnection: (provider: ProviderId) => typedError<null, AppError>(__TAURI_INVOKE("test_provider_connection", { provider })),
 	/**
-	 *  Beyond just listing what a provider offers, this also fills in each model's `pricing` field
-	 *  (a rate to show in the picker, not a computed cost — see `ModelInfo::pricing`) so the
-	 *  frontend never needs its own copy of the exact-then-approximate pricing resolution logic.
-	 *  Providers themselves stay unaware pricing exists at all — this enrichment happens here, at
-	 *  the command boundary, same separation as `Run`'s cost estimation in `build_new_run`.
+	 *  Beyond just listing what a provider offers, this also drops any model models.dev marks
+	 *  `"deprecated"` (no point offering a dead end in the picker — a `"beta"` model is still shown,
+	 *  per the user's explicit call) and fills in each model's `pricing` field (a rate to show in
+	 *  the picker, not a computed cost — see `ModelInfo::pricing`) so the frontend never needs its
+	 *  own copy of the pricing-lookup logic. Providers themselves stay unaware models.dev exists at
+	 *  all — this enrichment happens here, at the command boundary, same separation as `Run`'s cost
+	 *  estimation in `build_new_run`.
 	 */
 	listModels: (provider: ProviderId) => typedError<ModelInfo[], AppError>(__TAURI_INVOKE("list_models", { provider })),
 	runGeneration: (input: RunGenerationInput) => typedError<Run_Serialize, AppError>(__TAURI_INVOKE("run_generation", { input })),
@@ -147,8 +149,8 @@ export type ModelInfo = {
 	 *  A per-token rate, shown next to the model in the picker so the cost of a choice is
 	 *  visible *before* running anything — unlike `Run.estimated_cost_usd`, which only exists
 	 *  once a Run has real token usage to multiply against. Filled in by
-	 *  `commands::providers::list_models` (see `pricing::resolve_rate`), not by the provider
-	 *  modules themselves — `providers::*::list_models()` stays unaware of pricing entirely,
+	 *  `commands::providers::list_models` (see `pricing::models_dev`), not by the provider
+	 *  modules themselves — `providers::*::list_models()` stays unaware pricing exists at all,
 	 *  same separation as `Run`'s own cost estimation.
 	 */
 	pricing: ModelPricing | null,
@@ -163,8 +165,9 @@ export type ModelPricing = {
 	input_per_million_usd: number | null,
 	output_per_million_usd: number | null,
 	/**
-	 *  `true` when this rate came from the OpenRouter cross-provider approximation rather than
-	 *  our own hand-curated `pricing.json` or OpenRouter's own real price for its own models.
+	 *  Always `false` today — models.dev (see `pricing::models_dev`) gives each provider's own
+	 *  real price directly, no cross-provider approximation involved. Kept rather than removed
+	 *  in case a future pricing gap ever needs a lower-confidence fallback again.
 	 */
 	is_estimate: boolean,
 };
@@ -314,11 +317,10 @@ export type Run_Deserialize = {
 	 */
 	estimated_cost_usd: number | null,
 	/**
-	 *  `true` when `estimated_cost_usd` came from `pricing::openrouter_fallback` (another
-	 *  provider's cost approximated from OpenRouter's published price for the equivalent
-	 *  model) rather than our own hand-curated `pricing.json` or, for a Run that itself used
-	 *  OpenRouter, OpenRouter's own real price. Always `false` when `estimated_cost_usd` is
-	 *  `None`. The frontend uses this to show a "≈" and a disclosure tooltip.
+	 *  Always `false` today — `pricing::models_dev` gives each provider's own real price
+	 *  directly, no cross-provider approximation involved anymore (see its module doc for what
+	 *  this replaced). Kept, along with the frontend's "≈"/disclosure-tooltip handling for it,
+	 *  in case a future pricing gap ever needs a lower-confidence fallback again.
 	 */
 	cost_is_estimate: boolean,
 };
@@ -350,11 +352,10 @@ export type Run_Serialize = {
 	 */
 	estimated_cost_usd: number | null,
 	/**
-	 *  `true` when `estimated_cost_usd` came from `pricing::openrouter_fallback` (another
-	 *  provider's cost approximated from OpenRouter's published price for the equivalent
-	 *  model) rather than our own hand-curated `pricing.json` or, for a Run that itself used
-	 *  OpenRouter, OpenRouter's own real price. Always `false` when `estimated_cost_usd` is
-	 *  `None`. The frontend uses this to show a "≈" and a disclosure tooltip.
+	 *  Always `false` today — `pricing::models_dev` gives each provider's own real price
+	 *  directly, no cross-provider approximation involved anymore (see its module doc for what
+	 *  this replaced). Kept, along with the frontend's "≈"/disclosure-tooltip handling for it,
+	 *  in case a future pricing gap ever needs a lower-confidence fallback again.
 	 */
 	cost_is_estimate: boolean,
 };

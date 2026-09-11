@@ -12,7 +12,7 @@ use crate::domain::{
     AppError, AppResult, Experiment, ExperimentId, GenerationParams, ProviderId, Run, RunId,
     RunResult,
 };
-use crate::pricing::{OpenRouterPricingCache, PricingTable};
+use crate::pricing::ModelsDevCache;
 use crate::providers::ProviderRegistry;
 use crate::storage::{experiments_repo, runs_repo, Database};
 
@@ -54,8 +54,7 @@ async fn run_column(
     user_prompt: String,
     params: GenerationParams,
     providers: &ProviderRegistry,
-    pricing: &PricingTable,
-    openrouter_pricing: &OpenRouterPricingCache,
+    models_dev: &ModelsDevCache,
     db: &Database,
 ) -> AppResult<RunId> {
     let started_at = Utc::now();
@@ -84,8 +83,7 @@ async fn run_column(
         params,
         started_at,
         outcome,
-        pricing,
-        openrouter_pricing,
+        models_dev,
     )
     .await;
 
@@ -97,8 +95,7 @@ async fn run_column(
 pub async fn run_experiment(
     input: RunExperimentInput,
     providers: State<'_, ProviderRegistry>,
-    pricing: State<'_, PricingTable>,
-    openrouter_pricing: State<'_, OpenRouterPricingCache>,
+    models_dev: State<'_, ModelsDevCache>,
     db: State<'_, Database>,
 ) -> Result<RunExperimentResult, AppError> {
     let created_at = Utc::now();
@@ -117,8 +114,7 @@ pub async fn run_experiment(
             input.user_prompt.clone(),
             input.params.clone(),
             &providers,
-            &pricing,
-            &openrouter_pricing,
+            &models_dev,
             &db,
         )
     });

@@ -66,10 +66,9 @@ pub struct Run {
     /// Estimated cost in USD, computed from `result.usage` by the pricing module (a later step).
     /// `None` when there's no usage yet, or no pricing data for this model.
     pub estimated_cost_usd: Option<f64>,
-    /// `true` when `estimated_cost_usd` came from `pricing::openrouter_fallback` (another
-    /// provider's cost approximated from OpenRouter's published price for the equivalent
-    /// model) rather than our own hand-curated `pricing.json` or, for a Run that itself used
-    /// OpenRouter, OpenRouter's own real price. Always `false` when `estimated_cost_usd` is
-    /// `None`. The frontend uses this to show a "≈" and a disclosure tooltip.
+    /// Always `false` today — `pricing::models_dev` gives each provider's own real price
+    /// directly, no cross-provider approximation involved anymore (see its module doc for what
+    /// this replaced). Kept, along with the frontend's "≈"/disclosure-tooltip handling for it,
+    /// in case a future pricing gap ever needs a lower-confidence fallback again.
     pub cost_is_estimate: bool,
 }

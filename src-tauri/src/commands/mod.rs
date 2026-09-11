@@ -10,7 +10,7 @@ pub mod secrets;
 use chrono::{DateTime, Utc};
 
 use crate::domain::{AppError, AppResult, ExperimentId, GenerationParams, ProviderId, RunResult};
-use crate::pricing::{self, OpenRouterPricingCache, PricingTable};
+use crate::pricing::ModelsDevCache;
 use crate::secrets as secrets_store;
 use crate::storage::runs_repo::NewRun;
 
@@ -30,18 +30,17 @@ fn require_api_key(provider: ProviderId) -> AppResult<String> {
 /// Turns a provider call's outcome into the row `runs_repo::insert_run` expects: a success
 /// becomes `result`, a failure becomes `error` (the Run is persisted either way — see
 /// docs/start.md, a Run records "erreur éventuelle"), and the cost is estimated from whatever
-/// usage came back, if any. Shared by `runs::run_generation` (one Run) and
-/// `experiments::run_experiment` (several Runs sharing one Experiment) — the two commands differ
-/// in how they get `outcome` and in error handling *before* this point (a missing API key aborts
-/// a solo Playground run outright, but shouldn't sink an entire comparison — see
-/// `experiments::run_column`), but converting a finished outcome into a `NewRun` is identical
-/// either way.
+/// usage came back, if any, via models.dev (see `pricing::models_dev`). Shared by
+/// `runs::run_generation` (one Run) and `experiments::run_experiment` (several Runs sharing one
+/// Experiment) — the two commands differ in how they get `outcome` and in error handling
+/// *before* this point (a missing API key aborts a solo Playground run outright, but shouldn't
+/// sink an entire comparison — see `experiments::run_column`), but converting a finished outcome
+/// into a `NewRun` is identical either way.
 ///
-/// Cost is resolved in three steps, cheapest/most-trustworthy first: our own hand-curated
-/// `pricing.json` (exact), then — for a Run against OpenRouter itself — OpenRouter's own real
-/// price for that model (also exact, just fetched dynamically), then — for every other
-/// provider — an approximation derived from OpenRouter's price for what looks like the same
-/// model elsewhere (see `pricing::openrouter_fallback`; always flagged via `cost_is_estimate`).
+/// `cost_is_estimate` is always `false` now — models.dev gives each provider's own real price
+/// directly, unlike the earlier OpenRouter-based cross-provider approximation this replaced. The
+/// field (and the frontend's "≈" disclosure) stays in place rather than being ripped out, in
+/// case a future pricing gap ever needs a lower-confidence fallback again.
 #[allow(clippy::too_many_arguments)]
 async fn build_new_run(
     experiment_id: Option<ExperimentId>,
@@ -52,8 +51,7 @@ async fn build_new_run(
     params: GenerationParams,
     started_at: DateTime<Utc>,
     outcome: AppResult<RunResult>,
-    pricing: &PricingTable,
-    openrouter_pricing: &OpenRouterPricingCache,
+    models_dev: &ModelsDevCache,
 ) -> NewRun {
     let (result, error) = match outcome {
         Ok(result) => (Some(result), None),
@@ -61,14 +59,12 @@ async fn build_new_run(
     };
 
     let usage = result.as_ref().and_then(|result| result.usage);
-    let (estimated_cost_usd, cost_is_estimate) = match usage {
-        None => (None, false),
-        Some(usage) => {
-            match pricing::resolve_rate(provider, &model_id, pricing, openrouter_pricing).await {
-                Some((rate, is_estimate)) => (Some(rate.cost(&usage)), is_estimate),
-                None => (None, false),
-            }
-        }
+    let estimated_cost_usd = match usage {
+        None => None,
+        Some(usage) => models_dev
+            .price(provider, &model_id)
+            .await
+            .map(|rate| rate.cost(&usage)),
     };
 
     NewRun {
@@ -82,6 +78,6 @@ async fn build_new_run(
         result,
         error,
         estimated_cost_usd,
-        cost_is_estimate,
+        cost_is_estimate: false,
     }
 }

@@ -29,11 +29,11 @@ richer "comparison" table or UI-level concept layered on top.
 ```
 domain/       Plain data types + AppError. No I/O, no Tauri dependency.
 providers/    One LlmProvider implementation per vendor + the registry that looks them up.
-pricing/      Cost estimation: a static table plus an OpenRouter-derived fallback.
+pricing/      Cost estimation, sourced from models.dev's public model/pricing registry.
 storage/      SQLite access — the only part of the app that touches rusqlite.
 secrets/      OS-native keyring access — the only part of the app that touches API keys directly.
 commands/     Tauri commands: thin glue between the frontend and the modules above.
-lib.rs        Wires up managed state (Database, ProviderRegistry, PricingTable, ...) and specta.
+lib.rs        Wires up managed state (Database, ProviderRegistry, ModelsDevCache, ...) and specta.
 ```
 
 Each module owns one concern and doesn't reach into the others' internals. `domain` has zero
@@ -93,29 +93,43 @@ extra configuration. `secrets::get_api_key` is deliberately not a registered Tau
 never make it into the WebView or a frontend error message. Providers receive the key as a
 function argument, already resolved by the command layer.
 
-### Cost estimation: exact first, approximate as a fallback
+### Cost estimation: models.dev, looked up directly by native model id
 
-`pricing::PricingTable` is a small hand-curated table (`pricing/pricing.json`, embedded in the
-binary) mapping `(ProviderId, model_id)` to input/output price per million tokens. Most models
-aren't in it — providers rarely expose pricing through their own API, and hand-maintaining every
-model's price isn't the point of this app.
+`pricing::models_dev::ModelsDevCache` fetches [models.dev](https://models.dev)'s public
+`api.json` — a community-maintained (MIT-licensed), continuously-updated registry covering
+OpenAI/Anthropic/Google/Mistral/OpenRouter and 200+ other providers — at most once per app
+session and keeps the parsed result in memory (not SQLite — it's not relational data). The raw
+response itself *is* persisted to two small files next to the SQLite database
+(`models_dev_cache.json`/`.etag` in the app data dir): models.dev serves an `ETag`, so each
+session's first fetch sends it back as `If-None-Match` and, on a `304 Not Modified`, reuses the
+on-disk body instead of re-downloading the ~4.5 MB payload every launch. The same on-disk copy is
+also the fallback whenever the request can't complete at all (offline, DNS failure, a non-2xx
+status) — a slightly stale *real* price from models.dev is still real data, unlike the old
+cross-provider approximation this design replaced, so falling back to it beats showing no price
+for the whole session. Each entry is keyed by the provider's own **native** model id, so looking up
+a price is a single `(ProviderId, model_id)` hash-map lookup: no fuzzy matching, no normalizing
+punctuation, no resolving a rolling `-latest` alias to a dated snapshot. That's a deliberate
+change from an earlier design (see git history around `pricing::openrouter_fallback`) that used
+OpenRouter's own catalog as a cross-provider stand-in and needed real fuzzy-matching machinery
+for it, since OpenRouter's `vendor/model` ids don't line up with a provider's native ones —
+verified directly against a real fetch of models.dev's `api.json` that it doesn't have that
+problem (even Mistral's `-latest` aliases are present as their own real entries) before
+replacing the old design outright, including deleting the no-longer-needed hand-curated
+`pricing.json` (models.dev already covered the same models, cross-checked to match).
+`ModelsDevCache::price` returns `None` when a model genuinely isn't listed — there's no further
+approximate fallback beyond that, which is expected and acceptable per docs/start.md; `pricing::
+ModelPrice`'s `is_estimate` field (`Run.cost_is_estimate`, `ModelInfo.pricing.is_estimate`) is
+kept but always `false` now, in case a future pricing gap ever needs a lower-confidence source
+again.
 
-`pricing::openrouter_fallback::OpenRouterPricingCache` fills that gap for providers that don't
-publish pricing (Anthropic, Gemini, Mistral) by fetching OpenRouter's public model catalog
-(which *does* publish real per-model pricing) once per app session and fuzzy-matching model ids
-across vendors. This is explicitly an **approximation** — usually a ceiling, since OpenRouter
-takes its own margin — and the UI discloses it via `Run.cost_is_estimate` (a "≈" badge + tooltip
-in `ResultPanel.vue`) rather than presenting it as exact. See the module doc comment in
-`pricing/openrouter_fallback.rs` for the full matching logic (including how it resolves a
-rolling `-latest` alias, e.g. Mistral's `mistral-large-latest`, to whichever dated OpenRouter
-snapshot looks newest).
+The same fetch also drives `commands::providers::list_models` filtering out any model
+models.dev marks `"deprecated"` (a `"beta"` model is still shown) — one lookup per model covers
+both the price and the deprecation check.
 
-Cost resolution order, cheapest/most-trustworthy first (`commands::build_new_run`):
-1. `pricing.json` (exact).
-2. If the Run itself used OpenRouter: OpenRouter's own real price for that model (exact, just
-   fetched dynamically instead of hand-entered).
-3. Otherwise: the cross-provider approximation above (`cost_is_estimate: true`).
-4. No match anywhere → `None`, shown as "—".
+`pricing::models_dev::ModelEntry` parses more of models.dev's per-model data than pricing/status
+alone needs today (modalities, reasoning-effort levels, tool-call/structured-output support,
+context limits, ...) — deliberately, ahead of planned features (multimodal-aware UI, a
+reasoning-effort selector) that will want it without redoing the fetch/parse layer.
 
 ### Rust ↔ TypeScript type sync: `specta` + `tauri-specta`
 

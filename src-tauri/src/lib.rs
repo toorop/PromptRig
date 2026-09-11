@@ -9,7 +9,7 @@ pub mod storage;
 use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
 
-use pricing::{OpenRouterPricingCache, PricingTable};
+use pricing::ModelsDevCache;
 use providers::ProviderRegistry;
 use storage::Database;
 
@@ -58,8 +58,7 @@ pub fn run() {
 
             app.manage(db);
             app.manage(ProviderRegistry::new());
-            app.manage(PricingTable::load_default()?);
-            app.manage(OpenRouterPricingCache::new());
+            app.manage(ModelsDevCache::new(app_data_dir));
 
             Ok(())
         })
